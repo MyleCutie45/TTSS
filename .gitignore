@@ -1,0 +1,20 @@
+# Reference paper (copyrighted; see link.md for source URL)
+seamcarving_original_paper.pdf
+
+# Build outputs
+build/
+out/
+*.o
+*.obj
+*.exe
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
