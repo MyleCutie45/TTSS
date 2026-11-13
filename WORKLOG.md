@@ -135,7 +135,7 @@ gh repo create TTSS --public --source=. --remote=origin --push
 
 | Test | Expected Result | Actual Result | Status |
 | ---- | --------------- | ------------- | ------ |
-| Push to GitHub | Remote `main` matches local | See session output | Done |
+| Push to GitHub | Remote `main` matches local | Commit 48ffa6a pushed to https://github.com/MyleCutie45/TTSS; `main` tracks `origin/main` | Passed |
 
 #### 7. Problems Encountered
 
