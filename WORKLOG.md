@@ -14,9 +14,9 @@
 
 ## Current Project Status
 
-- Current milestone: M2 finished (Member A's part M0–M2 done and pushed to GitHub `main`)
-- Overall status: sequential + OpenMP versions bit-exact equal; OpenMP synchronization overhead on Windows makes the parallel DP slow
-- Last updated: 2026-11-17
+- Current milestone: M3 finished (branch `m3-testing`), M4 in progress
+- Overall status: sequential + OpenMP versions bit-exact equal (M3: no defect found, tests + ASan + TSan); OpenMP synchronization overhead on Windows makes the parallel DP slow
+- Last updated: 2026-11-19
 
 ## Milestone Progress
 
@@ -25,8 +25,8 @@
 | M0        | Research and Architecture     | Completed (contract approved by Member A; Members B/C agreement not yet recorded) |
 | M1        | Sequential Implementation     | Completed |
 | M2        | OpenMP Implementation         | Completed (correct; parallel DP slower than sequential on this platform) |
-| M3        | Correctness Testing           | Not started |
-| M4        | Performance Benchmarking      | Not started |
+| M3        | Correctness Testing           | Completed (2026-11-19, `docs/testing_report.md`) |
+| M4        | Performance Benchmarking      | In progress (scripts written, benchmarks not yet run) |
 | M5        | Performance Optimization      | Not started |
 | M6        | Final Report and Presentation | Not started |
 
@@ -746,6 +746,111 @@ No new tests run in this step (review only). Baseline from the previous entry: `
 Implement `tests/test_m3.cpp` (edge cases for omp, forced seam positions, maximum contrast, brute force on
 non-square shapes, connectivity of every seam, large images, odd thread counts).
 
+### [2026-11-19] – M3 steps 3–6: new tests, mutation check, sanitizers, testing report
+
+**Milestone:** M3
+
+**Status:** Completed. No defect found in the implementation; no source file in `src/` or `include/` changed.
+
+#### 1. Objective
+
+Close the coverage gaps found in steps 1–2, prove that the tests can find real bugs, check for memory errors
+and data races with tools, and write `docs/testing_report.md`.
+
+#### 2. Work Performed
+
+- `tests/test_m3.cpp`: independent reference implementation + 9 test groups (edge-case images, forced border
+  seams, patterns / maximum energy 510, brute force on non-square shapes, 100-seam connectivity run, large
+  images 1920×1080 / 3840×2160, odd thread counts / oversubscription / threads > columns or rows, 50× repeated
+  runs, real images −20 % width −10 % height). Modes `--quick` and full.
+- `CMakeLists.txt`: target `test_m3`, CTest entries `test_m3_quick`, `test_m3_full`, labels `quick` / `full`.
+- `scripts/mutation_check.py`: 8 mutants built in `build/mutants/` (real sources untouched).
+- `scripts/run_sanitizers.sh` (WSL): ASan+UBSan (g++), TSan+Archer (clang/libomp), memcheck mode (not run).
+- `tests/tsan.supp`: TSan suppressions for uninstrumented libomp / libtbb internals.
+- `docs/testing_report.md` completed; `README.md` test section and status table updated.
+- Environment for sanitizers: WSL Ubuntu 26.04 with g++ 15.2.0, clang 21.1.8, OpenCV 4.10.0, valgrind 3.26.0.
+
+#### 3. Technical Explanation
+
+- **Why an independent reference:** all earlier equivalence tests compare omp with seq; a mistake present in
+  both cannot be seen that way. The reference uses `at<>()`, 64-bit sums, `(value, column)` pair comparison
+  and copy-based removal – a different way to write the same contract.
+- **Lockstep:** seq, omp and reference run seam by seam; after every stage everything is compared exactly and
+  each seam is checked for connectivity. Integer data → no tolerance.
+- **Mutation testing idea:** if a test suite passes on correct code and fails on every inserted bug, it is
+  able to detect that kind of bug.
+- **ThreadSanitizer + Archer:** TSan records which thread touched which memory and reports two accesses to the
+  same address (one a write) that are not ordered by synchronization. Archer tells TSan where OpenMP
+  barriers are. Libraries not compiled with TSan (libomp internals, libtbb used by OpenCV) produce false
+  reports, which are suppressed with `called_from_lib:` rules only.
+- **Positive control lesson:** a first suppression file with `race:libomp.so` silenced everything, including
+  the real race of mutant M1 – because a `race:` rule matches any stack frame and every OpenMP worker is
+  started by libomp. Found only because the mutant was tested with the same setup; rule removed.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| tests/test_m3.cpp | Created | M3 tests + reference implementation |
+| tests/tsan.supp | Created | TSan suppressions (libomp/libtbb internals only) |
+| CMakeLists.txt | Modified | `test_m3`, CTest labels quick/full |
+| scripts/mutation_check.py | Created | Mutation check |
+| scripts/run_sanitizers.sh | Created | ASan / TSan / memcheck runs in WSL |
+| docs/testing_report.md | Modified | Sections 4–6 (tests, results, conclusions), environment |
+| README.md | Modified | Test section, milestone table |
+| WORKLOG.md | Modified | This entry |
+
+#### 5. Commands Executed
+
+```powershell
+cmake --build build
+.\build\test_m3.exe --quick ; .\build\test_m3.exe
+ctest --test-dir build -L quick ; ctest --test-dir build -N -L full
+python scripts\mutation_check.py
+wsl --manage Ubuntu --move E:\wsl\Ubuntu
+wsl -u root -- apt-get install g++ cmake ninja-build libopencv-dev clang libomp-dev valgrind llvm-21
+wsl -u root -- bash scripts/run_sanitizers.sh asan . /root/ttss-sanitizers
+wsl -u root -- bash scripts/run_sanitizers.sh tsan . /root/ttss-sanitizers
+wsl -u root -- bash scripts/run_sanitizers.sh tsan-quick build/mutants/M1 /root/ttss-sanitizers
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Build with `test_m3` (`-Wall -Wextra`) | No warnings | No warnings | Passed |
+| `test_m3 --quick` (Windows) | 0 failed | 6 801 checks, 0 failed, 15 s | Passed |
+| `test_m3` full (Windows) | 0 failed | 71 580 checks, 0 failed, 245 s (machine busy) | Passed |
+| `ctest -L quick` | 10/10 | 10/10, 31 s | Passed |
+| Mutation check (8 mutants) | all detected | 8/8 detected by `test_m3 --quick`; M8 (same bug in seq and omp) NOT detected by `test_equivalence` (0/147 368) | Passed |
+| ASan+UBSan: test_seq / test_m3 / test_equivalence | no report, 0 failed | 65 / 71 580 / 147 368 checks, 0 failed, no sanitizer report | Passed |
+| TSan, no suppressions, test_m3 --quick | – | 4 reports, all inside libomp / libtbb (false positives), 0 failed | Analysed |
+| TSan positive control, mutant M1 | race reported in seam_omp.cpp | 83 reports, all in `seam_omp.cpp` (`dpCell`, line 39) | Passed |
+| TSan (final suppressions), test_m3 --quick / full | 0 reports | 0 / 0 reports; 6 801 / 71 580 checks, 0 failed | Passed |
+
+#### 7. Problems Encountered
+
+- TSan false positives from uninstrumented libraries; first suppression attempt too broad (see section 3).
+- Unsuppressed TSan `test_equivalence` was still running after > 40 min → stopped; not repeated (test_m3
+  covers the same configurations). ASan `test_equivalence` took 2 650 s because it ran concurrently with TSan.
+- Editing `run_sanitizers.sh` while the ASan run used it gave a harmless bash "unexpected EOF" after the last
+  test had finished (all results were already written).
+- Valgrind memcheck mode exists in the script but was not run (ASan already covers memory errors).
+
+#### 8. Decisions and Reasoning
+
+- Do not modify `test_seq.cpp` / `test_equivalence.cpp` (Member A's), so their M2 results stay comparable.
+- TSan suppressions limited to `called_from_lib:` and validated by a positive control.
+- No change to `src/` because no defect was found (M3.md: do not change the algorithm to make tests pass).
+
+#### 9. Remaining Tasks
+
+- M4 (benchmarking).
+
+#### 10. Next Step
+
+M4 pilot run on an idle machine.
+
 ---
 
 # Technical Decision History
@@ -774,7 +879,8 @@ Record important architecture and algorithmic decisions here.
 
 | Issue | Description | Priority | Status |
 | ----- | ----------- | -------- | ------ |
-| No ThreadSanitizer | TSan is not supported by MinGW on Windows; races must be detected by repeated seq-vs-omp comparison tests | Medium | Open (accepted limitation) |
+| No ThreadSanitizer | TSan is not supported by MinGW on Windows; races must be detected by repeated seq-vs-omp comparison tests | Medium | Mitigated in M3: TSan + Archer and ASan run on Linux/WSL (`scripts/run_sanitizers.sh`); Windows build itself still has no sanitizer |
+| TSan false positives | libomp / libtbb (OpenCV) are not built with TSan → false reports; `tests/tsan.supp` uses `called_from_lib:` only (a `race:libomp.so` rule hides real races) | Info | Handled (validated with mutant M1) |
 | `python` resolves to MSYS2 Python | MSYS2 is first in PATH, so `python` has no Pillow/numpy/matplotlib. Call another Python (e.g. conda) by its full path | Low | Open (workaround known) |
 | Hybrid CPU | i9-13900H has P- and E-cores; speedup beyond 6 threads will not be linear; affects M4 analysis | Info | Open |
 | 8K benchmark image | Largest source photo is 6000x4000; 7680x4320 needs upscaling | Low | Open (to note in M4 report) |
@@ -838,10 +944,11 @@ This section must always reflect the latest project state.
 - M2: OpenMP implementation (all stages, DP variants A/B), equivalence tests (147 368 checks pass).
 
 - M0–M2 tests reproduced on the M3/M4 machine (i7-1065G7): build OK, `ctest` 10/10 (2026-11-18).
+- M3: `tests/test_m3.cpp` (71 580 checks), mutation check 8/8, ASan + TSan clean, `docs/testing_report.md` (2026-11-19).
 
 **In Progress:**
 
-- M3 and M4 (owner: user of the i7-1065G7 machine); planning done, implementation not started.
+- M4 (owner: user of the i7-1065G7 machine): scripts `make_bench_images.py`, `run_bench.py`, `analyze_bench.py` written; benchmarks not yet run.
 
 **Blocked:**
 
@@ -849,4 +956,4 @@ This section must always reflect the latest project state.
 
 **Next Recommended Task:**
 
-- M3 step 3: implement `tests/test_m3.cpp` (gaps listed in `docs/testing_report.md` §3–4). (Agreement of the other members on `docs/architecture.md` still not recorded.)
+- M4 pilot run, then the main benchmark on an idle machine (AC power, Best performance). (Agreement of the other members on `docs/architecture.md` still not recorded.)
