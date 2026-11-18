@@ -21,3 +21,6 @@ __pycache__/
 
 # Full-resolution source photos (large; download links in images/SOURCES.md)
 images/original/
+
+# Generated benchmark images (recreate with scripts/make_bench_images.py)
+bench_images/
