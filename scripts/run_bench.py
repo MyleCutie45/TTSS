@@ -178,6 +178,14 @@ def machine_info():
             info.update({"cpu": parts[0].strip(), "cores": parts[1], "base_mhz": parts[2], "ram_gb": parts[3],
                          "on_ac_power": parts[4].strip() == "2"})
         info["power_scheme"] = sh(["powercfg", "/getactivescheme"])
+        # Windows 11 "Power mode" (Settings > Power & battery) is an overlay on top of the scheme.
+        overlay = sh(["powershell", "-NoProfile", "-Command",
+                      "(Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Power\\User\\PowerSchemes')"
+                      ".ActiveOverlayAcPowerScheme"]).lower()
+        info["power_mode_ac"] = {"ded574b5-45a0-4f42-8737-46345c09c238": "Best performance",
+                                 "961cc777-2547-4f9d-8174-7d86181b8a7a": "Best power efficiency",
+                                 "00000000-0000-0000-0000-000000000000": "Balanced",
+                                 "": "Balanced"}.get(overlay, f"unknown ({overlay})")
     return info
 
 
