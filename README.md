@@ -12,7 +12,9 @@ with the lowest "energy" (edge strength), so important objects keep their shape.
 | M0 | Research and architecture (`docs/`) | Done |
 | M1 | Sequential implementation (`src/seam_seq.cpp`) | Done |
 | M2 | OpenMP implementation (`src/seam_omp.cpp`) | Done (results identical to sequential; see limitation below) |
-| M3–M6 | Testing, benchmarking, optimization, report | Not started |
+| M3 | Correctness testing (`tests/test_m3.cpp`, `docs/testing_report.md`) | Done |
+| M4 | Benchmarking (`scripts/`, `results/`, `docs/benchmark_report.md`) | In progress |
+| M5–M6 | Optimization, report | Not started |
 
 See `WORKLOG.md` for the detailed development history.
 
@@ -59,12 +61,21 @@ The sequential library `seam_seq` is compiled **without** OpenMP flags.
 ## 3. Test
 
 ```bash
-ctest --test-dir build --output-on-failure
+ctest --test-dir build --output-on-failure          # everything
+ctest --test-dir build -L quick                     # fast set (~30 s): after every change
+ctest --test-dir build -L full                      # slow set (~8 min): before a merge
 ```
 
 - `test_seq`: unit tests of every stage (hand-computed 4x4 example from `docs/algorithm.md`, tie rule,
   brute-force optimality, seam connectivity, removal, edge cases, height via transpose, determinism).
+- `test_equivalence`: OpenMP vs sequential, every stage of every seam, many thread counts and schedules.
+- `test_m3` (`--quick` / full): M3 tests – independent reference implementation, edge-case images,
+  border seams, maximum contrast, large images, odd thread counts, oversubscription, repeated runs.
 - `cli_*`: command-line checks (invalid arguments must fail, a normal run must succeed).
+
+Extra checks (M3, see `docs/testing_report.md`): `python scripts/mutation_check.py` (do the tests catch
+known bugs?) and, on Linux/WSL, `bash scripts/run_sanitizers.sh asan|tsan` (AddressSanitizer,
+ThreadSanitizer).
 
 ---
 
