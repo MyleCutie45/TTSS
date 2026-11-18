@@ -851,6 +851,100 @@ wsl -u root -- bash scripts/run_sanitizers.sh tsan-quick build/mutants/M1 /root/
 
 M4 pilot run on an idle machine.
 
+### [2026-11-19] – M4 preparation: benchmark scripts, images, pilot runs
+
+**Milestone:** M4
+
+**Status:** In progress. Scripts done and tested; pilot done; main benchmark not yet run.
+
+#### 1. Objective
+
+Build a reproducible benchmark system (M4.md) and estimate how long the real experiments take.
+
+#### 2. Work Performed
+
+- `scripts/make_bench_images.py`: benchmark images in `bench_images/` (ignored by git) + `manifest.json`.
+- `scripts/run_bench.py`: experiments `pilot`, `pilot_threads`, `main`, `main_nodp`, `stages`, `schedule`,
+  `content`; raw CSV rows in `results/`, metadata in `results/<exp>.meta.json`.
+- `scripts/analyze_bench.py`: medians, min/max, IQR, speedup, efficiency, Markdown tables, plots
+  (`docs/figures/`); tested on a small real run written to a scratch folder (not kept).
+- `scripts/run_all_bench.py`: the overnight plan chosen by the user.
+- Pilot runs: `results/pilot.csv` (12 runs), `results/pilot_threads.csv` (6 runs).
+
+#### 3. Technical Explanation
+
+- **Images:** the full-resolution Unsplash photos are not on this machine and Unsplash blocks automated
+  downloads (HTTP 401 / bot check), so the 800-px PNGs in `tests/data/` are the sources: main series from
+  `person_desert` (512² scale 0.96; 1920×1080 ×2.4; 3840×2160 ×4.8; 7680×4320 ×9.6 upscaled), content
+  series 1920×1080 from the other photos + seeded noise. Run time per seam is O(W·H) with no data-dependent
+  loops, so content should matter little; the `content` experiment checks this.
+- **Runner:** round 0 = warm-up (excluded), then measured rounds; configurations shuffled inside each round
+  (seed 2026); every output image hashed and compared with the seq output; resumable.
+- **Pilot (1 run each, machine idle, power plan "HP Recommended", AC; planning data only):**
+
+| Size, −10 % | seq t_total | omp 4 thr, all stages | omp 4 thr, DP sequential |
+| ----------- | ----------- | --------------------- | ------------------------ |
+| 512×512 | 0.036 s | 1.44 s | 0.041 s |
+| 1920×1080 | 1.02 s | 10.95 s | 0.86 s |
+| 3840×2160 | 9.15 s | 45.1 s | 5.91 s |
+| 7680×4320 | 71.2 s | 193.0 s | 41.8 s |
+
+  All 12 outputs had the same hash as seq. Parallel DP synchronization cost per image row (from `t_dp`,
+  1920×1080): 1 thread ≈ 12 µs, 2 ≈ 40 µs, 4 ≈ 51 µs, 8 ≈ 82 µs, 16 ≈ 118 µs, variant B with 16 ≈ 190 µs
+  (sequential DP ≈ 2 µs of work per row).
+- **Time budget (estimate from the pilot):** all experiments with 1 warm-up + 5 rounds ≈ 22 h. User chose
+  the overnight variant (≈ 8–9 h): `main` (all stages) with 3 rounds, no warm-up, 7680×4320 only at −10 %;
+  `schedule` with 3 rounds; the rest 1 + 5 rounds.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| scripts/make_bench_images.py | Created | Benchmark images |
+| scripts/run_bench.py | Created | Benchmark runner |
+| scripts/analyze_bench.py | Created | Analysis and plots |
+| scripts/run_all_bench.py | Created | Overnight plan |
+| results/pilot*.csv, *.meta.json | Created | Pilot data (planning only) |
+| .gitignore | Modified | `bench_images/` |
+| WORKLOG.md | Modified | This entry |
+
+#### 5. Commands Executed
+
+```powershell
+python scripts\make_bench_images.py
+python scripts\run_bench.py pilot --rounds 1 --warmup 0
+python scripts\run_bench.py pilot_threads --rounds 1 --warmup 0
+python scripts\analyze_bench.py <scratch csv files> --out <scratch folder>   # script test
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Runner smoke test (512², 3 configs) | CSV rows, hash_ok 1 | 3 rows, hash_ok 1 | Passed |
+| Pilot outputs vs seq | identical hash | 12/12 identical | Passed |
+| Analysis script on small real data | tables + plots | tables + 8 plots; fixed a crash in the schedule plot (empty panel) | Passed after fix |
+
+#### 7. Problems Encountered
+
+- Unsplash blocks automated downloads → upscaled 800-px sources (documented in the manifest and report).
+- Parallel DP is 3–40× slower than sequential DP (pilot) → full plan would take ~22 h.
+
+#### 8. Decisions and Reasoning
+
+- Primary speedup series = `main_nodp` (energy, min, removal parallel; DP sequential) in addition to the
+  required "combined" version with all stages (`main`), because the parallel DP alone makes the combined
+  version slower than sequential; both are reported.
+- Pilot data are never reported as results; `analyze_bench.py` ignores `results/pilot*.csv` by default.
+
+#### 9. Remaining Tasks
+
+- Run `scripts/run_all_bench.py` (user prepares the machine first), analyse, write `docs/benchmark_report.md`.
+
+#### 10. Next Step
+
+Main benchmark run.
+
 ---
 
 # Technical Decision History
