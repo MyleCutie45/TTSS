@@ -677,6 +677,75 @@ Plan (agreed with the user, details may change):
 
 M3 step 1–2: code review of `seam_seq.cpp` / `seam_omp.cpp` and test-coverage gap analysis.
 
+### [2026-11-18] – M3 step 1–2: code review and test-coverage analysis
+
+**Milestone:** M3
+
+**Status:** Completed (steps 1–2 of the M3 plan). M3 as a whole: in progress.
+
+#### 1. Objective
+
+Before writing new tests: read both implementations to look for race conditions and out-of-range
+accesses, and compare the existing tests with the 10 requirements of `M3.md` to find gaps.
+
+#### 2. Work Performed
+
+- Reviewed every parallel loop in `src/seam_omp.cpp` and the matching code in `src/seam_seq.cpp`.
+- Reviewed `tests/test_seq.cpp` and `tests/test_equivalence.cpp` (all test functions).
+- Created `docs/testing_report.md` with environment, review table, coverage table and planned tests.
+- Created branch `m3-testing` (team rule: one branch per milestone).
+
+#### 3. Technical Explanation
+
+- **Review method:** for each `#pragma omp` loop: shared vs private data, who writes which memory,
+  where the barrier is. Result: every parallel loop writes disjoint memory (one row or one cell per
+  iteration, one result slot per thread) and every read of another thread's data happens after a
+  barrier. **No race or out-of-range access found by reading.**
+- **Overflow bound:** `M <= 510 · rows`; with height reduction the image is transposed, so rows can be the
+  original width: 7680 → `M <= 3.9 M`, far below the int32 limit.
+- **Main gaps:** no large images (1920×1080, 3840×2160); omp never tested on edge-case images
+  (1 column / 1 row / 1×1 / narrower than the thread count); no odd thread counts; seam connectivity not
+  checked for every seam; no tool-based race/memory check (no sanitizers in MinGW).
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| docs/testing_report.md | Created | M3 report (sections 1–4; results pending) |
+| WORKLOG.md | Modified | This entry |
+
+#### 5. Commands Executed
+
+```powershell
+git switch -c m3-testing
+git commit -m "Record M3/M4 plan and test reproduction on M3/M4 machine"   # 55e06af
+```
+
+#### 6. Testing and Results
+
+No new tests run in this step (review only). Baseline from the previous entry: `ctest` 10/10.
+
+#### 7. Problems Encountered
+
+- None. Note: `omp_impl::carve()` changes the global thread count (`omp_set_num_threads`); not a bug, but
+  tests must set the thread count explicitly.
+
+#### 8. Decisions and Reasoning
+
+- New tests go into a new file `tests/test_m3.cpp`; the existing test files (written by Member A) stay
+  unchanged, so their results remain comparable with M2.
+- Sanitizers will be run on Linux (WSL), since MinGW GCC supports neither ASan nor TSan.
+
+#### 9. Remaining Tasks
+
+- M3 steps 3–6: implement `tests/test_m3.cpp`, sanitizer runs, mutation checks, fast/full test split,
+  finish `docs/testing_report.md`.
+
+#### 10. Next Step
+
+Implement `tests/test_m3.cpp` (edge cases for omp, forced seam positions, maximum contrast, brute force on
+non-square shapes, connectivity of every seam, large images, odd thread counts).
+
 ---
 
 # Technical Decision History
@@ -780,4 +849,4 @@ This section must always reflect the latest project state.
 
 **Next Recommended Task:**
 
-- M3 step 1–2: review of `seam_seq.cpp` / `seam_omp.cpp` and test-coverage gap analysis. (Agreement of the other members on `docs/architecture.md` still not recorded.)
+- M3 step 3: implement `tests/test_m3.cpp` (gaps listed in `docs/testing_report.md` §3–4). (Agreement of the other members on `docs/architecture.md` still not recorded.)
