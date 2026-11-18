@@ -592,6 +592,91 @@ barrier 15–213 µs for 1–20 threads; `OMP_WAIT_POLICY=active` no effect).
 
 Commit and push M0–M2, then hand over to Member B (M3) and Member C (M4/M5).
 
+### [2026-11-18] – M3/M4 planning and reproduction of M0–M2 tests on the M3/M4 machine
+
+**Milestone:** M3, M4 (planning)
+
+**Status:** Planning completed; existing tests reproduced. No M3/M4 code written yet.
+
+#### 1. Objective
+
+The owner of M3 (correctness) and M4 (benchmarking) reviewed M0–M2, planned M3/M4 and checked that the
+existing build and tests work on the machine that will be used for M3/M4.
+
+#### 2. Work Performed
+
+- Read `M3.md`, `M4.md`, `docs/benchmark_plan.md`, `CMakeLists.txt`, `include/seam_omp.h`, test function list.
+- Built the project (Release) and ran `ctest` on this machine.
+
+#### 3. Technical Explanation
+
+M3/M4 machine (a **different machine** from the one used in M0–M2):
+
+| Item | Value |
+| ---- | ----- |
+| CPU | Intel Core i7-1065G7 @ 1.30 GHz, 4 cores, 8 logical processors (not hybrid) |
+| RAM | 31.8 GB |
+| OS | Windows 11 Home Single Language 10.0.22631 |
+| Compiler / libraries | GCC 16.2.0 (MSYS2 UCRT64), CMake 4.5.0, Ninja 1.13.2, OpenCV 5.0.0, OpenMP 5.2 (`_OPENMP = 202111`) – identical to the team contract |
+
+Consequences for M4: thread counts 1, 2, 4, 8 (16 > 8 logical processors is not supported; may only be
+shown as an oversubscription experiment). All M4 results must come from this one machine; M2's informal
+timings (i9-13900H) are not comparable.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| WORKLOG.md | Modified | This entry, Current Development Summary |
+
+No source files changed.
+
+#### 5. Commands Executed
+
+```powershell
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Build (Release, `-Wall -Wextra`) | No errors, no warnings | No errors, no warnings | Passed |
+| `ctest` | 10/10 pass | 10/10 passed, total 254.17 s | Passed |
+| `test_seq` | 0 failed | 65 checks, 0 failed (0.34 s) | Passed |
+| `test_equivalence` | 0 failed | 147 368 checks, 0 failed (252.02 s) | Passed |
+
+Same check counts as on the M2 machine, so the M2 results are reproduced. `test_equivalence` uses up to
+20 threads; on this 8-logical-processor CPU that is oversubscription (more threads than hardware threads)
+and the results are still bit-exact.
+
+#### 7. Problems Encountered
+
+- None.
+
+#### 8. Decisions and Reasoning
+
+Plan (agreed with the user, details may change):
+
+- **M3:** coverage review of existing tests vs the 10 M3 requirements; new tests for gaps (very narrow
+  images, threads > columns, 0 seams, target width 1, synthetic patterns, large images, odd thread counts,
+  oversubscription, height carving in omp, many repetitions); sanitizer builds on Linux/WSL (ASan/UBSan,
+  TSan/Valgrind where usable, because MinGW has no sanitizers); mutation checks; split quick/full tests;
+  `docs/testing_report.md`.
+- **M4:** scripts for benchmark images, a runner (warm-up + ≥5 runs, randomized order, output hash check,
+  environment metadata) and analysis/plots; pilot run first to estimate total time (parallel DP is very
+  slow, see M2); then main grid, stage study, schedule study, DP A vs B; `docs/benchmark_report.md`.
+
+#### 9. Remaining Tasks
+
+- Execute M3 and M4 plans.
+
+#### 10. Next Step
+
+M3 step 1–2: code review of `seam_seq.cpp` / `seam_omp.cpp` and test-coverage gap analysis.
+
 ---
 
 # Technical Decision History
@@ -683,9 +768,11 @@ This section must always reflect the latest project state.
 - M1: sequential implementation, CLI, README, unit tests (65 checks pass).
 - M2: OpenMP implementation (all stages, DP variants A/B), equivalence tests (147 368 checks pass).
 
+- M0–M2 tests reproduced on the M3/M4 machine (i7-1065G7): build OK, `ctest` 10/10 (2026-11-18).
+
 **In Progress:**
 
-- None (Member A's work M0–M2 is done and pushed).
+- M3 and M4 (owner: user of the i7-1065G7 machine); planning done, implementation not started.
 
 **Blocked:**
 
@@ -693,4 +780,4 @@ This section must always reflect the latest project state.
 
 **Next Recommended Task:**
 
-- Members B and C confirm the interface contract (`docs/architecture.md`), then start M3 (Member B) and M4/M5 (Member C).
+- M3 step 1–2: review of `seam_seq.cpp` / `seam_omp.cpp` and test-coverage gap analysis. (Agreement of the other members on `docs/architecture.md` still not recorded.)
