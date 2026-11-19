@@ -16,6 +16,7 @@ Methodology (docs/benchmark_plan.md, section 5):
 
 Usage:
   python scripts/run_bench.py <experiment> [--rounds N] [--warmup K] [--timeout S] [--out results/x.csv]
+                              [--exe path/to/seam_carving]
   python scripts/run_bench.py --list
 """
 import argparse
@@ -132,6 +133,23 @@ def exp_pilot_threads():
             [cfg(img, 0.1, "omp", t, ALL, persistent=True) for t in (4, 16)])
 
 
+def exp_wsl():
+    """Supplementary check, run inside WSL2 (Linux) on the same laptop with a Linux build (--exe).
+    Same code, but a Linux OpenMP runtime (GCC libgomp for Linux). Question: is the high cost of the
+    parallel DP measured on Windows a property of the algorithm or of the platform's OpenMP runtime?"""
+    img = main_image("1920x1080")
+    out = [cfg(img, 0.2, "seq")]
+    for t in (1, 2, 4, 8):
+        out += [cfg(img, 0.2, "omp", t, "dp"),
+                cfg(img, 0.2, "omp", t, "dp", persistent=True),
+                cfg(img, 0.2, "omp", t, "energy,min,removal"),
+                cfg(img, 0.2, "omp", t, ALL)]
+    for s in ("3840x2160", "7680x4320"):
+        out.append(cfg(main_image(s), 0.1, "seq"))
+        out += [cfg(main_image(s), 0.1, "omp", 4, st) for st in ("energy,min,removal", ALL)]
+    return out
+
+
 EXPERIMENTS = {
     "pilot": exp_pilot,
     "pilot_threads": exp_pilot_threads,
@@ -140,6 +158,7 @@ EXPERIMENTS = {
     "stages": exp_stages,
     "schedule": exp_schedule,
     "content": exp_content,
+    "wsl": exp_wsl,
 }
 
 
@@ -151,23 +170,54 @@ def machine_info():
                                   ).stdout.strip()
         except Exception as e:  # noqa: BLE001 - metadata only
             return f"unknown ({e})"
+
+    def git(*args):  # None if git fails (e.g. "dubious ownership" inside WSL): never guess "clean"
+        try:
+            p = subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True, timeout=60)
+            return p.stdout.strip() if p.returncode == 0 else None
+        except Exception:  # noqa: BLE001 - metadata only
+            return None
+    commit = git("rev-parse", "--short", "HEAD")
+    status = git("status", "--porcelain", "--untracked-files=no")
     info = {
         "date": datetime.now().isoformat(timespec="seconds"),
         "platform": platform.platform(),
         "logical_processors": LOGICAL,
         "python": sys.version.split()[0],
-        "compiler": sh(["g++", "--version"]).splitlines()[0] if sh(["g++", "--version"]) else "unknown",
-        "git_commit": sh(["git", "-C", str(ROOT), "rev-parse", "--short", "HEAD"]),
-        "git_dirty": bool(sh(["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=no"])),
+        "executable": str(EXE),
+        "git_commit": commit or "unknown",
+        "git_dirty": bool(status) if status is not None else "unknown",
         "env": {k: os.environ.get(k) for k in ("OMP_SCHEDULE", "OMP_PLACES", "OMP_PROC_BIND",
                                                "OMP_WAIT_POLICY", "OMP_DYNAMIC")},
     }
-    cache = ROOT / "build" / "CMakeCache.txt"
+    build_dir = EXE.parent
+    cache = build_dir / "CMakeCache.txt"
     if cache.exists():
         for line in cache.read_text(errors="replace").splitlines():
-            if line.startswith(("CMAKE_CXX_FLAGS_RELEASE:", "CMAKE_BUILD_TYPE:", "OpenMP_CXX_FLAGS:")):
+            if line.startswith(("CMAKE_BUILD_TYPE:", "OpenMP_CXX_FLAGS:", "CMAKE_CXX_COMPILER:")):
                 k, v = line.split("=", 1)
                 info[k.split(":")[0]] = v
+    # The compiler that built the program (from the CMake cache), not whatever g++ is first on PATH.
+    version = sh([info.get("CMAKE_CXX_COMPILER", "g++"), "--version"])
+    info["compiler"] = version.splitlines()[0] if version else "unknown"
+    # Effective compile flags. CMakeCache.txt is NOT used for them: CMakeLists.txt overrides the cached
+    # CMAKE_CXX_FLAGS_RELEASE (CMake default "-O3 -DNDEBUG") with "-O2 -DNDEBUG" as a normal variable,
+    # so only the generated build file shows what the compiler really received.
+    ninja = build_dir / "build.ninja"
+    if ninja.exists():
+        info["compile_flags"] = sorted({ln.split("=", 1)[1].strip()
+                                        for ln in ninja.read_text(errors="replace").splitlines()
+                                        if ln.strip().startswith("FLAGS = ") and "-std=" in ln})
+    if sys.platform.startswith("linux"):
+        try:
+            cpuinfo = Path("/proc/cpuinfo").read_text()
+            info["cpu"] = re.search(r"model name\s*:\s*(.*)", cpuinfo).group(1).strip()
+            kb = int(re.search(r"MemTotal:\s*(\d+)", Path("/proc/meminfo").read_text()).group(1))
+            info["ram_gb"] = str(round(kb / 1024 ** 2, 1))
+        except (OSError, AttributeError):
+            pass
+        info["kernel"] = platform.release()
+        info["wsl"] = "microsoft" in platform.release().lower()
     if sys.platform == "win32":
         ps = ("$p=Get-CimInstance Win32_Processor; $c=Get-CimInstance Win32_ComputerSystem; "
               "$b=Get-CimInstance Win32_Battery; "
@@ -231,8 +281,12 @@ def main():
     ap.add_argument("--out", help="CSV path (default results/<experiment>.csv)")
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--only", help="regex: run only configurations whose id matches")
+    ap.add_argument("--exe", help="program to benchmark (default build/seam_carving[.exe])")
     ap.add_argument("--list", action="store_true")
     a = ap.parse_args()
+    if a.exe:
+        global EXE
+        EXE = Path(a.exe).resolve()
 
     if a.list or not a.experiment:
         for k, f in EXPERIMENTS.items():
