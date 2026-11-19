@@ -1109,6 +1109,67 @@ python3 scripts/run_bench.py wsl --exe /root/ttss-release/seam_carving --warmup 
 
 Open the pull requests (M3, M4), then M5 (optimization) based on report §7.
 
+### [2026-11-19] – Publish M3 + M4 for review (one pull request)
+
+**Milestone:** M3, M4
+
+**Status:** Completed (branch pushed; pull request opened by the user on GitHub, review pending).
+
+#### 1. Objective
+
+Make the M3 and M4 work available to the team for review and merge into `main`.
+
+#### 2. Work Performed
+
+- Checked that `origin/main` (3eae021) has no commits missing from `m4-benchmark`, so the merge has no
+  conflicts.
+- Pushed `m4-benchmark`. It was created from `m3-testing`, so it contains both milestones (9 commits).
+  Decision (user): **one** pull request `m4-benchmark → main` for M3 and M4 together.
+
+#### 3. Technical Explanation
+
+No code change. The pull request lets the other members read the diff, rerun `ctest -L quick`, and
+comment before the work enters `main`.
+
+#### 4. Files Created or Modified
+
+| File       | Action   | Description       |
+| ---------- | -------- | ----------------- |
+| WORKLOG.md | Modified | Added this entry  |
+
+#### 5. Commands Executed
+
+```bash
+git fetch origin
+git log --oneline main..m4-benchmark      # 9 commits (M3: 4, M4: 5)
+git push -u origin m4-benchmark
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Push `m4-benchmark` | Branch on GitHub | `origin/m4-benchmark` created, local branch tracks it | Passed |
+
+#### 7. Problems Encountered
+
+- The GitHub CLI (`gh`) is not available on this machine, so the pull request is opened in the browser
+  from https://github.com/MyleCutie45/TTSS/pull/new/m4-benchmark.
+
+#### 8. Decisions and Reasoning
+
+- One pull request instead of two: `m4-benchmark` already contains all M3 commits; a single review avoids
+  reviewing M3 twice.
+- The branch `m3-testing` is kept (it is fully contained in `m4-benchmark`) and not pushed.
+
+#### 9. Remaining Tasks
+
+- Team review and merge of the pull request.
+
+#### 10. Next Step
+
+After the merge: M5 (optimization) based on `docs/benchmark_report.md` §7.10.
+
 ---
 
 # Technical Decision History
@@ -1244,7 +1305,7 @@ This section must always reflect the latest project state.
 
 **In Progress:**
 
-- None. Branches `m3-testing` and `m4-benchmark` are committed locally, not pushed, no pull requests yet.
+- Review of the pull request `m4-benchmark → main` (contains M3 and M4), opened 2026-11-19.
 
 **Blocked:**
 
@@ -1252,4 +1313,4 @@ This section must always reflect the latest project state.
 
 **Next Recommended Task:**
 
-- Open pull requests for M3 and M4 and let the team review them; then M5 (optimization) using `docs/benchmark_report.md` §7.10. (Agreement of the other members on `docs/architecture.md` still not recorded.)
+- Team review and merge of the M3 + M4 pull request; then M5 (optimization) using `docs/benchmark_report.md` §7.10. (Agreement of the other members on `docs/architecture.md` still not recorded.)
