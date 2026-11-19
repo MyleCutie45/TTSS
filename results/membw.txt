@@ -1,0 +1,32 @@
+# Memory bandwidth reference (scripts/membw.cpp), measured 2026-11-19 09:15 on the benchmark laptop
+# Build: g++ -std=c++17 -O2 -fopenmp scripts/membw.cpp -o build/membw.exe   (GCC 16.2.0, MSYS2 UCRT64, Windows 11)
+# Two arrays of 512 MB; best of 5 repetitions per test; GB = 1e9 bytes; copy counts read + write bytes.
+# AC power, Windows power mode Best performance, no other benchmark running.
+# run 1
+threads,test,GB_per_s
+1,read,14.4
+1,write,14.5
+1,copy,19.2
+2,read,28.7
+2,write,17.5
+2,copy,23.7
+4,read,44.7
+4,write,17.0
+4,copy,24.7
+8,read,45.9
+8,write,16.2
+8,copy,24.3
+# run 2
+threads,test,GB_per_s
+1,read,14.6
+1,write,14.5
+1,copy,19.1
+2,read,28.9
+2,write,17.2
+2,copy,23.2
+4,read,40.9
+4,write,16.6
+4,copy,24.6
+8,read,44.4
+8,write,16.0
+8,copy,24.0
