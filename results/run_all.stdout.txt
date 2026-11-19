@@ -1,0 +1,24 @@
+2026-11-19T01:19:16 run_all_bench start
+2026-11-19T01:19:16 step content start: content --warmup 1 --rounds 5
+2026-11-19T01:21:28 step content end: exit 0, 2.2 min
+2026-11-19T01:21:28 step stages start: stages --warmup 1 --rounds 5
+2026-11-19T02:20:09 step stages end: exit 0, 58.7 min
+2026-11-19T02:20:09 step main_nodp start: main_nodp --warmup 1 --rounds 5
+2026-11-19T05:40:10 step main_nodp end: exit 0, 200.0 min
+2026-11-19T05:40:10 step main start: main --warmup 0 --rounds 3 --only ^(?!person_desert_7680x4320\.png\|0\.[23]\|)
+2026-11-19T08:22:45 step main end: exit 0, 162.6 min
+2026-11-19T08:22:45 step schedule start: schedule --warmup 0 --rounds 3
+2026-11-19T08:43:29 step schedule end: exit 0, 20.7 min
+wrote E:\hus\ttss\TTSS\results\summary.md, E:\hus\ttss\TTSS\results\summary.csv
+wrote E:\hus\ttss\TTSS\docs\figures\time_vs_threads_main.png
+wrote E:\hus\ttss\TTSS\docs\figures\speedup_vs_threads_main.png
+wrote E:\hus\ttss\TTSS\docs\figures\efficiency_vs_threads_main.png
+wrote E:\hus\ttss\TTSS\docs\figures\time_vs_threads_main_nodp.png
+wrote E:\hus\ttss\TTSS\docs\figures\speedup_vs_threads_main_nodp.png
+wrote E:\hus\ttss\TTSS\docs\figures\efficiency_vs_threads_main_nodp.png
+wrote E:\hus\ttss\TTSS\docs\figures\speedup_vs_size.png
+wrote E:\hus\ttss\TTSS\docs\figures\breakdown_stages.png
+wrote E:\hus\ttss\TTSS\docs\figures\stage_times_vs_threads.png
+wrote E:\hus\ttss\TTSS\docs\figures\schedule.png
+2026-11-19T08:43:33 analysis exit 0
+2026-11-19T08:43:33 run_all_bench done

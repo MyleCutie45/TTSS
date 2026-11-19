@@ -51,6 +51,13 @@ target_link_libraries(test_equivalence PRIVATE seam_seq seam_omp OpenMP::OpenMP_
 target_compile_definitions(test_equivalence PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
 add_test(NAME test_equivalence COMMAND test_equivalence)
 
+# M3 tests (tests/test_m3.cpp). Two CTest entries: a reduced "--quick" run and the full run.
+add_executable(test_m3 tests/test_m3.cpp)
+target_link_libraries(test_m3 PRIVATE seam_seq seam_omp OpenMP::OpenMP_CXX)
+target_compile_definitions(test_m3 PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
+add_test(NAME test_m3_quick COMMAND test_m3 --quick)
+add_test(NAME test_m3_full COMMAND test_m3)
+
 # CLI argument checks: these commands must FAIL (non-zero exit code).
 add_test(NAME cli_missing_args COMMAND seam_carving)
 add_test(NAME cli_target_too_wide
@@ -81,3 +88,11 @@ add_test(NAME cli_omp_run
 add_test(NAME cli_seq_run
          COMMAND seam_carving --input ${CMAKE_SOURCE_DIR}/tests/data/boat_sea.png
                               --output ${CMAKE_BINARY_DIR}/cli_ok.png --width 780 --height 590 --csv)
+
+# Test sets (M3): "quick" for frequent runs (about a minute), "full" for the complete validation.
+#   ctest --test-dir build -L quick
+#   ctest --test-dir build -L full
+set_tests_properties(test_seq test_m3_quick cli_missing_args cli_target_too_wide cli_target_zero
+                     cli_missing_file cli_bad_stage cli_zero_threads cli_omp_run cli_seq_run
+                     PROPERTIES LABELS quick)
+set_tests_properties(test_equivalence test_m3_full PROPERTIES LABELS full)
