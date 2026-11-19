@@ -1,0 +1,16 @@
+# ThreadSanitizer suppressions for the M3 race check (scripts/run_sanitizers.sh tsan).
+#
+# "called_from_lib:<lib>" tells TSan not to intercept calls (pthread_mutex_lock, memset, ...) that are
+# made FROM INSIDE that library. These libraries are not compiled with -fsanitize=thread, so TSan
+# cannot see their internal synchronization and reports false races. Measured 2026-11-19: all 4 reports
+# of an unsuppressed run had both accesses inside libomp's own lock initialization or inside libtbb
+# worker threads used by OpenCV; none involved project code.
+#
+# Do NOT use "race:libomp.so": a race suppression matches ANY frame of the stack, and every OpenMP
+# worker thread is started by libomp, so it hides every real race in a parallel region. This was
+# found with the positive control (mutant M1, barrier removed: 0 reports with "race:libomp.so").
+#
+# Positive control: with exactly these suppressions TSan must still report the race of mutant M1
+# (barrier removed in the DP, src/seam_omp.cpp) - see docs/testing_report.md.
+called_from_lib:libomp.so
+called_from_lib:libtbb.so

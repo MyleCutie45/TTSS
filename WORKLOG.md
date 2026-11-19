@@ -14,9 +14,9 @@
 
 ## Current Project Status
 
-- Current milestone: M2 finished (Member A's part M0–M2 done and pushed to GitHub `main`)
-- Overall status: sequential + OpenMP versions bit-exact equal; OpenMP synchronization overhead on Windows makes the parallel DP slow
-- Last updated: 2026-11-17
+- Current milestone: M4 finished (branch `m4-benchmark`; M3 on `m3-testing`); next: M5
+- Overall status: sequential + OpenMP versions bit-exact equal (M3; all 1191 benchmark runs also gave identical outputs); OpenMP synchronization overhead on Windows makes the parallel DP slow (M4: measured, not present under Linux); best measured speedup 1.79× (DP sequential, 7680×4320)
+- Last updated: 2026-11-19
 
 ## Milestone Progress
 
@@ -25,8 +25,8 @@
 | M0        | Research and Architecture     | Completed (contract approved by Member A; Members B/C agreement not yet recorded) |
 | M1        | Sequential Implementation     | Completed |
 | M2        | OpenMP Implementation         | Completed (correct; parallel DP slower than sequential on this platform) |
-| M3        | Correctness Testing           | Not started |
-| M4        | Performance Benchmarking      | Not started |
+| M3        | Correctness Testing           | Completed (2026-11-19, `docs/testing_report.md`) |
+| M4        | Performance Benchmarking      | Completed (2026-11-19, `docs/benchmark_report.md`) |
 | M5        | Performance Optimization      | Not started |
 | M6        | Final Report and Presentation | Not started |
 
@@ -592,6 +592,584 @@ barrier 15–213 µs for 1–20 threads; `OMP_WAIT_POLICY=active` no effect).
 
 Commit and push M0–M2, then hand over to Member B (M3) and Member C (M4/M5).
 
+### [2026-11-18] – M3/M4 planning and reproduction of M0–M2 tests on the M3/M4 machine
+
+**Milestone:** M3, M4 (planning)
+
+**Status:** Planning completed; existing tests reproduced. No M3/M4 code written yet.
+
+#### 1. Objective
+
+The owner of M3 (correctness) and M4 (benchmarking) reviewed M0–M2, planned M3/M4 and checked that the
+existing build and tests work on the machine that will be used for M3/M4.
+
+#### 2. Work Performed
+
+- Read `M3.md`, `M4.md`, `docs/benchmark_plan.md`, `CMakeLists.txt`, `include/seam_omp.h`, test function list.
+- Built the project (Release) and ran `ctest` on this machine.
+
+#### 3. Technical Explanation
+
+M3/M4 machine (a **different machine** from the one used in M0–M2):
+
+| Item | Value |
+| ---- | ----- |
+| CPU | Intel Core i7-1065G7 @ 1.30 GHz, 4 cores, 8 logical processors (not hybrid) |
+| RAM | 31.8 GB |
+| OS | Windows 11 Home Single Language 10.0.22631 |
+| Compiler / libraries | GCC 16.2.0 (MSYS2 UCRT64), CMake 4.5.0, Ninja 1.13.2, OpenCV 5.0.0, OpenMP 5.2 (`_OPENMP = 202111`) – identical to the team contract |
+
+Consequences for M4: thread counts 1, 2, 4, 8 (16 > 8 logical processors is not supported; may only be
+shown as an oversubscription experiment). All M4 results must come from this one machine; M2's informal
+timings (i9-13900H) are not comparable.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| WORKLOG.md | Modified | This entry, Current Development Summary |
+
+No source files changed.
+
+#### 5. Commands Executed
+
+```powershell
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Build (Release, `-Wall -Wextra`) | No errors, no warnings | No errors, no warnings | Passed |
+| `ctest` | 10/10 pass | 10/10 passed, total 254.17 s | Passed |
+| `test_seq` | 0 failed | 65 checks, 0 failed (0.34 s) | Passed |
+| `test_equivalence` | 0 failed | 147 368 checks, 0 failed (252.02 s) | Passed |
+
+Same check counts as on the M2 machine, so the M2 results are reproduced. `test_equivalence` uses up to
+20 threads; on this 8-logical-processor CPU that is oversubscription (more threads than hardware threads)
+and the results are still bit-exact.
+
+#### 7. Problems Encountered
+
+- None.
+
+#### 8. Decisions and Reasoning
+
+Plan (agreed with the user, details may change):
+
+- **M3:** coverage review of existing tests vs the 10 M3 requirements; new tests for gaps (very narrow
+  images, threads > columns, 0 seams, target width 1, synthetic patterns, large images, odd thread counts,
+  oversubscription, height carving in omp, many repetitions); sanitizer builds on Linux/WSL (ASan/UBSan,
+  TSan/Valgrind where usable, because MinGW has no sanitizers); mutation checks; split quick/full tests;
+  `docs/testing_report.md`.
+- **M4:** scripts for benchmark images, a runner (warm-up + ≥5 runs, randomized order, output hash check,
+  environment metadata) and analysis/plots; pilot run first to estimate total time (parallel DP is very
+  slow, see M2); then main grid, stage study, schedule study, DP A vs B; `docs/benchmark_report.md`.
+
+#### 9. Remaining Tasks
+
+- Execute M3 and M4 plans.
+
+#### 10. Next Step
+
+M3 step 1–2: code review of `seam_seq.cpp` / `seam_omp.cpp` and test-coverage gap analysis.
+
+### [2026-11-18] – M3 step 1–2: code review and test-coverage analysis
+
+**Milestone:** M3
+
+**Status:** Completed (steps 1–2 of the M3 plan). M3 as a whole: in progress.
+
+#### 1. Objective
+
+Before writing new tests: read both implementations to look for race conditions and out-of-range
+accesses, and compare the existing tests with the 10 requirements of `M3.md` to find gaps.
+
+#### 2. Work Performed
+
+- Reviewed every parallel loop in `src/seam_omp.cpp` and the matching code in `src/seam_seq.cpp`.
+- Reviewed `tests/test_seq.cpp` and `tests/test_equivalence.cpp` (all test functions).
+- Created `docs/testing_report.md` with environment, review table, coverage table and planned tests.
+- Created branch `m3-testing` (team rule: one branch per milestone).
+
+#### 3. Technical Explanation
+
+- **Review method:** for each `#pragma omp` loop: shared vs private data, who writes which memory,
+  where the barrier is. Result: every parallel loop writes disjoint memory (one row or one cell per
+  iteration, one result slot per thread) and every read of another thread's data happens after a
+  barrier. **No race or out-of-range access found by reading.**
+- **Overflow bound:** `M <= 510 · rows`; with height reduction the image is transposed, so rows can be the
+  original width: 7680 → `M <= 3.9 M`, far below the int32 limit.
+- **Main gaps:** no large images (1920×1080, 3840×2160); omp never tested on edge-case images
+  (1 column / 1 row / 1×1 / narrower than the thread count); no odd thread counts; seam connectivity not
+  checked for every seam; no tool-based race/memory check (no sanitizers in MinGW).
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| docs/testing_report.md | Created | M3 report (sections 1–4; results pending) |
+| WORKLOG.md | Modified | This entry |
+
+#### 5. Commands Executed
+
+```powershell
+git switch -c m3-testing
+git commit -m "Record M3/M4 plan and test reproduction on M3/M4 machine"   # 55e06af
+```
+
+#### 6. Testing and Results
+
+No new tests run in this step (review only). Baseline from the previous entry: `ctest` 10/10.
+
+#### 7. Problems Encountered
+
+- None. Note: `omp_impl::carve()` changes the global thread count (`omp_set_num_threads`); not a bug, but
+  tests must set the thread count explicitly.
+
+#### 8. Decisions and Reasoning
+
+- New tests go into a new file `tests/test_m3.cpp`; the existing test files (written by Member A) stay
+  unchanged, so their results remain comparable with M2.
+- Sanitizers will be run on Linux (WSL), since MinGW GCC supports neither ASan nor TSan.
+
+#### 9. Remaining Tasks
+
+- M3 steps 3–6: implement `tests/test_m3.cpp`, sanitizer runs, mutation checks, fast/full test split,
+  finish `docs/testing_report.md`.
+
+#### 10. Next Step
+
+Implement `tests/test_m3.cpp` (edge cases for omp, forced seam positions, maximum contrast, brute force on
+non-square shapes, connectivity of every seam, large images, odd thread counts).
+
+### [2026-11-19] – M3 steps 3–6: new tests, mutation check, sanitizers, testing report
+
+**Milestone:** M3
+
+**Status:** Completed. No defect found in the implementation; no source file in `src/` or `include/` changed.
+
+#### 1. Objective
+
+Close the coverage gaps found in steps 1–2, prove that the tests can find real bugs, check for memory errors
+and data races with tools, and write `docs/testing_report.md`.
+
+#### 2. Work Performed
+
+- `tests/test_m3.cpp`: independent reference implementation + 9 test groups (edge-case images, forced border
+  seams, patterns / maximum energy 510, brute force on non-square shapes, 100-seam connectivity run, large
+  images 1920×1080 / 3840×2160, odd thread counts / oversubscription / threads > columns or rows, 50× repeated
+  runs, real images −20 % width −10 % height). Modes `--quick` and full.
+- `CMakeLists.txt`: target `test_m3`, CTest entries `test_m3_quick`, `test_m3_full`, labels `quick` / `full`.
+- `scripts/mutation_check.py`: 8 mutants built in `build/mutants/` (real sources untouched).
+- `scripts/run_sanitizers.sh` (WSL): ASan+UBSan (g++), TSan+Archer (clang/libomp), memcheck mode (not run).
+- `tests/tsan.supp`: TSan suppressions for uninstrumented libomp / libtbb internals.
+- `docs/testing_report.md` completed; `README.md` test section and status table updated.
+- Environment for sanitizers: WSL Ubuntu 26.04 with g++ 15.2.0, clang 21.1.8, OpenCV 4.10.0, valgrind 3.26.0.
+
+#### 3. Technical Explanation
+
+- **Why an independent reference:** all earlier equivalence tests compare omp with seq; a mistake present in
+  both cannot be seen that way. The reference uses `at<>()`, 64-bit sums, `(value, column)` pair comparison
+  and copy-based removal – a different way to write the same contract.
+- **Lockstep:** seq, omp and reference run seam by seam; after every stage everything is compared exactly and
+  each seam is checked for connectivity. Integer data → no tolerance.
+- **Mutation testing idea:** if a test suite passes on correct code and fails on every inserted bug, it is
+  able to detect that kind of bug.
+- **ThreadSanitizer + Archer:** TSan records which thread touched which memory and reports two accesses to the
+  same address (one a write) that are not ordered by synchronization. Archer tells TSan where OpenMP
+  barriers are. Libraries not compiled with TSan (libomp internals, libtbb used by OpenCV) produce false
+  reports, which are suppressed with `called_from_lib:` rules only.
+- **Positive control lesson:** a first suppression file with `race:libomp.so` silenced everything, including
+  the real race of mutant M1 – because a `race:` rule matches any stack frame and every OpenMP worker is
+  started by libomp. Found only because the mutant was tested with the same setup; rule removed.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| tests/test_m3.cpp | Created | M3 tests + reference implementation |
+| tests/tsan.supp | Created | TSan suppressions (libomp/libtbb internals only) |
+| CMakeLists.txt | Modified | `test_m3`, CTest labels quick/full |
+| scripts/mutation_check.py | Created | Mutation check |
+| scripts/run_sanitizers.sh | Created | ASan / TSan / memcheck runs in WSL |
+| docs/testing_report.md | Modified | Sections 4–6 (tests, results, conclusions), environment |
+| README.md | Modified | Test section, milestone table |
+| WORKLOG.md | Modified | This entry |
+
+#### 5. Commands Executed
+
+```powershell
+cmake --build build
+.\build\test_m3.exe --quick ; .\build\test_m3.exe
+ctest --test-dir build -L quick ; ctest --test-dir build -N -L full
+python scripts\mutation_check.py
+# Linux tools needed by the sanitizer runs: see docs/testing_report.md, section 1
+wsl -u root -- bash scripts/run_sanitizers.sh asan . /root/ttss-sanitizers
+wsl -u root -- bash scripts/run_sanitizers.sh tsan . /root/ttss-sanitizers
+wsl -u root -- bash scripts/run_sanitizers.sh tsan-quick build/mutants/M1 /root/ttss-sanitizers
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Build with `test_m3` (`-Wall -Wextra`) | No warnings | No warnings | Passed |
+| `test_m3 --quick` (Windows) | 0 failed | 6 801 checks, 0 failed, 15 s | Passed |
+| `test_m3` full (Windows) | 0 failed | 71 580 checks, 0 failed, 245 s (machine busy) | Passed |
+| `ctest -L quick` | 10/10 | 10/10, 31 s | Passed |
+| Mutation check (8 mutants) | all detected | 8/8 detected by `test_m3 --quick`; M8 (same bug in seq and omp) NOT detected by `test_equivalence` (0/147 368) | Passed |
+| ASan+UBSan: test_seq / test_m3 / test_equivalence | no report, 0 failed | 65 / 71 580 / 147 368 checks, 0 failed, no sanitizer report | Passed |
+| TSan, no suppressions, test_m3 --quick | – | 4 reports, all inside libomp / libtbb (false positives), 0 failed | Analysed |
+| TSan positive control, mutant M1 | race reported in seam_omp.cpp | 83 reports, all in `seam_omp.cpp` (`dpCell`, line 39) | Passed |
+| TSan (final suppressions), test_m3 --quick / full | 0 reports | 0 / 0 reports; 6 801 / 71 580 checks, 0 failed | Passed |
+
+#### 7. Problems Encountered
+
+- TSan false positives from uninstrumented libraries; first suppression attempt too broad (see section 3).
+- Unsuppressed TSan `test_equivalence` was still running after > 40 min → stopped; not repeated (test_m3
+  covers the same configurations). ASan `test_equivalence` took 2 650 s because it ran concurrently with TSan.
+- Editing `run_sanitizers.sh` while the ASan run used it gave a harmless bash "unexpected EOF" after the last
+  test had finished (all results were already written).
+- Valgrind memcheck mode exists in the script but was not run (ASan already covers memory errors).
+
+#### 8. Decisions and Reasoning
+
+- Do not modify `test_seq.cpp` / `test_equivalence.cpp` (Member A's), so their M2 results stay comparable.
+- TSan suppressions limited to `called_from_lib:` and validated by a positive control.
+- No change to `src/` because no defect was found (M3.md: do not change the algorithm to make tests pass).
+
+#### 9. Remaining Tasks
+
+- M4 (benchmarking).
+
+#### 10. Next Step
+
+M4 pilot run on an idle machine.
+
+### [2026-11-19] – M4 preparation: benchmark scripts, images, pilot runs
+
+**Milestone:** M4
+
+**Status:** In progress. Scripts done and tested; pilot done; main benchmark not yet run.
+
+#### 1. Objective
+
+Build a reproducible benchmark system (M4.md) and estimate how long the real experiments take.
+
+#### 2. Work Performed
+
+- `scripts/make_bench_images.py`: benchmark images in `bench_images/` (ignored by git) + `manifest.json`.
+- `scripts/run_bench.py`: experiments `pilot`, `pilot_threads`, `main`, `main_nodp`, `stages`, `schedule`,
+  `content`; raw CSV rows in `results/`, metadata in `results/<exp>.meta.json`.
+- `scripts/analyze_bench.py`: medians, min/max, IQR, speedup, efficiency, Markdown tables, plots
+  (`docs/figures/`); tested on a small real run written to a scratch folder (not kept).
+- `scripts/run_all_bench.py`: the overnight plan chosen by the user.
+- Pilot runs: `results/pilot.csv` (12 runs), `results/pilot_threads.csv` (6 runs).
+
+#### 3. Technical Explanation
+
+- **Images:** the full-resolution Unsplash photos are not on this machine and Unsplash blocks automated
+  downloads (HTTP 401 / bot check), so the 800-px PNGs in `tests/data/` are the sources: main series from
+  `person_desert` (512² scale 0.96; 1920×1080 ×2.4; 3840×2160 ×4.8; 7680×4320 ×9.6 upscaled), content
+  series 1920×1080 from the other photos + seeded noise. Run time per seam is O(W·H) with no data-dependent
+  loops, so content should matter little; the `content` experiment checks this.
+- **Runner:** round 0 = warm-up (excluded), then measured rounds; configurations shuffled inside each round
+  (seed 2026); every output image hashed and compared with the seq output; resumable.
+- **Pilot (1 run each, machine idle, power plan "HP Recommended", AC; planning data only):**
+
+| Size, −10 % | seq t_total | omp 4 thr, all stages | omp 4 thr, DP sequential |
+| ----------- | ----------- | --------------------- | ------------------------ |
+| 512×512 | 0.036 s | 1.44 s | 0.041 s |
+| 1920×1080 | 1.02 s | 10.95 s | 0.86 s |
+| 3840×2160 | 9.15 s | 45.1 s | 5.91 s |
+| 7680×4320 | 71.2 s | 193.0 s | 41.8 s |
+
+  All 12 outputs had the same hash as seq. Parallel DP synchronization cost per image row (from `t_dp`,
+  1920×1080): 1 thread ≈ 12 µs, 2 ≈ 40 µs, 4 ≈ 51 µs, 8 ≈ 82 µs, 16 ≈ 118 µs, variant B with 16 ≈ 190 µs
+  (sequential DP ≈ 2 µs of work per row).
+- **Time budget (estimate from the pilot):** all experiments with 1 warm-up + 5 rounds ≈ 22 h. User chose
+  the overnight variant (≈ 8–9 h): `main` (all stages) with 3 rounds, no warm-up, 7680×4320 only at −10 %;
+  `schedule` with 3 rounds; the rest 1 + 5 rounds.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| scripts/make_bench_images.py | Created | Benchmark images |
+| scripts/run_bench.py | Created | Benchmark runner |
+| scripts/analyze_bench.py | Created | Analysis and plots |
+| scripts/run_all_bench.py | Created | Overnight plan |
+| results/pilot*.csv, *.meta.json | Created | Pilot data (planning only) |
+| .gitignore | Modified | `bench_images/` |
+| WORKLOG.md | Modified | This entry |
+
+#### 5. Commands Executed
+
+```powershell
+python scripts\make_bench_images.py
+python scripts\run_bench.py pilot --rounds 1 --warmup 0
+python scripts\run_bench.py pilot_threads --rounds 1 --warmup 0
+python scripts\analyze_bench.py <scratch csv files> --out <scratch folder>   # script test
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Runner smoke test (512², 3 configs) | CSV rows, hash_ok 1 | 3 rows, hash_ok 1 | Passed |
+| Pilot outputs vs seq | identical hash | 12/12 identical | Passed |
+| Analysis script on small real data | tables + plots | tables + 8 plots; fixed a crash in the schedule plot (empty panel) | Passed after fix |
+
+#### 7. Problems Encountered
+
+- Unsplash blocks automated downloads → upscaled 800-px sources (documented in the manifest and report).
+- Parallel DP is 3–40× slower than sequential DP (pilot) → full plan would take ~22 h.
+
+#### 8. Decisions and Reasoning
+
+- Primary speedup series = `main_nodp` (energy, min, removal parallel; DP sequential) in addition to the
+  required "combined" version with all stages (`main`), because the parallel DP alone makes the combined
+  version slower than sequential; both are reported.
+- Pilot data are never reported as results; `analyze_bench.py` ignores `results/pilot*.csv` by default.
+
+#### 9. Remaining Tasks
+
+- Run `scripts/run_all_bench.py` (user prepares the machine first), analyse, write `docs/benchmark_report.md`.
+
+#### 10. Next Step
+
+Main benchmark run.
+
+### [2026-11-19] – M4: benchmark run, Linux comparison, analysis and report
+
+**Milestone:** M4
+
+**Status:** Completed. All experiments of the overnight plan ran without a single failed run or wrong output;
+two supplementary measurements were added; `docs/benchmark_report.md` is final.
+
+#### 1. Objective
+
+Run the M4 benchmark, verify the data, analyse speedup, efficiency, stages, DP variants, schedules, image
+size, content and initialization cost, and write the benchmark report (M4.md).
+
+#### 2. Work Performed
+
+- **Overnight run** `scripts/run_all_bench.py`, 01:19–08:43 (7 h 24 min, machine idle, AC, Best performance).
+  Experiments: `content` 2.2 min, `stages` 58.7 min, `main_nodp` 200.0 min, `main` 162.6 min, `schedule`
+  20.7 min. In total 1053 runs.
+  - After every experiment the CSV was checked with Python's `csv` module (row count, exit code, `hash_ok`).
+- **`scripts/run_bench.py`** (commit `dc4bde2`):
+  - Records the *effective* compile flags from `build.ninja`.
+  - Records the compiler named in the CMake cache.
+  - Writes `unknown` instead of "clean" when git fails.
+  - New option `--exe`, Linux metadata, and the supplementary experiment `wsl`.
+- **Linux build in WSL2** (`/root/ttss-release`, same commit), quick tests, then the `wsl` experiment
+  (138 runs, 22 min).
+- **`scripts/membw.cpp`**: memory-bandwidth reference (read / write / copy, 1–8 threads), run twice
+  → `results/membw.txt`.
+- **`scripts/analyze_bench.py`**:
+  - Plot layout: legends outside the plot area, plain numbers on log axes, "(over)" tick for 16 threads,
+    linear speedup axis when the speedups are small.
+  - New tables: stage speedups (only-this-stage and by image size), Amdahl's law, DP time per row,
+    Windows vs Linux.
+  - Fixed part of a run: pixel-work model, median-based fits, direct measurement.
+  - New plot `dp_time_per_row.png`.
+  - `--out` no longer changes the input folder.
+- **`docs/benchmark_report.md`** written; **`README.md`**: M4 Done, benchmark section, limitation text,
+  layout.
+- **WORKLOG M3 entry**: removed two machine-installation command lines (WSL move / apt-get), as the user
+  asked on 2026-11-18. They are replaced by a pointer to `docs/testing_report.md` §1.
+
+#### 3. Technical Explanation
+
+Key results (all measured; tables in `results/summary.md`, explanation in the report):
+
+| Question | Result |
+| -------- | ------ |
+| All four stages parallel (DP variant A) | Slower than sequential everywhere: speedup 0.01–0.68 (512×512 … 7680×4320, 1–16 threads) |
+| DP sequential (energy+min+removal parallel) | 1.40–1.79× for ≥ 1920×1080 with 4–16 threads; best 1.79× at 7680×4320, −10 %, 8 threads; 512×512: 0.81–1.05× |
+| Stages (1920×1080, 4 threads) | Energy 3.31×; removal 1.11× (2.8–3.1× at 7680×4320); min 0.03× (slower); parallel DP 0.04× |
+| DP per row on Windows | 1.84 µs of work; +9.2 µs (1 thread, variant A) and +22…+167 µs (2–16 threads) of synchronization |
+| Same code under Linux (WSL2) | −0.4…+0.1 µs per row (2–4 threads); variant B 1.27× faster than the sequential DP; all stages 1.36× (1920×1080) to 1.71× (7680×4320) with 4 threads |
+| Amdahl (energy+min+removal) | f = 0.596 → limit 2.48×; measured 1.52× at 4 threads (84 % of the limit) |
+| Schedules | DP sequential: all within 5 %. Parallel DP: `dynamic` 1.4–2.1× slower, `static,1` 10–14 % slower (false sharing) |
+| Fixed part of a run | 1.4–58 ms (≤ 0.5 % of the run for ≥ 1920×1080), measured as `t_total − Σ stages` |
+| Content | 6 images within 4.4 % (sequential) |
+| Memory bandwidth | Read 14.5 GB/s (1 thread) → 41–46 GB/s (4–8 threads); write ≈ 17 GB/s; copy ≈ 24 GB/s |
+
+**Why the parallel DP is slow** (report §7.1).
+- Each image row needs one synchronization (variant A: fork + join; variant B: one barrier).
+- At 1920×1080, −20 % that is 414 336 synchronizations per run. Each costs 22–167 µs on Windows, against
+  1.84 µs of work per row.
+- Under Linux the same code needs about 1 µs per row. So the cost comes from the Windows OpenMP runtime, not
+  from the algorithm.
+- *Hypothesis:* the MinGW build of libgomp waits on OS mutexes and semaphores, while the Linux build spins
+  and uses futexes. Not verified with a profiler.
+
+**Fixed part** (report §6.8, §7.8).
+- The cost of one seam shrinks with the width: seam k processes H·(W − k) pixels. A straight line
+  `t = a + b·seams` through the three reductions therefore has a large positive intercept: 17–21 % of the run,
+  e.g. 14.1 s at 7680×4320.
+- The direct measurement `t_total − Σ stages` shows only 1.4–58 ms. The report uses the direct value and keeps
+  the regressions as a lesson.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| results/content.csv, stages.csv, main_nodp.csv, main.csv, schedule.csv (+ .meta.json) | Created | Raw benchmark data (Windows) |
+| results/wsl.csv, wsl.meta.json, wsl.stdout.txt | Created | Supplementary Linux run |
+| results/membw.txt | Created | Memory-bandwidth reference |
+| results/run_all.log, run_all.stdout.txt | Created | Log of the overnight run |
+| results/summary.md, summary.csv | Created | Generated tables |
+| docs/figures/*.png (11 plots) | Created | Generated plots |
+| scripts/run_bench.py | Modified | Effective flags, compiler from cache, git "unknown", `--exe`, Linux metadata, `wsl` experiment (commit `dc4bde2`) |
+| scripts/analyze_bench.py | Modified | Layout fixes, new tables and plot, fixed-part analysis |
+| scripts/membw.cpp | Created | Bandwidth reference program |
+| docs/benchmark_report.md | Created | M4 report (final) |
+| README.md | Modified | M4 status, benchmark section, limitation, layout |
+| WORKLOG.md | Modified | This entry; status sections; M3 entry without install lines |
+
+#### 5. Commands Executed
+
+```powershell
+python scripts\run_all_bench.py                      # started detached; log results\run_all.log
+python <scratch>\check_csv.py results\<exp>.csv     # row / exit / hash check after every experiment
+ninja -C build -n                                    # "no work to do": benchmark binary matches the sources
+python scripts\run_bench.py main_nodp --only "<512x512 seq + omp t4>" --rounds 1 --warmup 0 --out <scratch>   # smoke test
+g++ -std=c++17 -O2 -fopenmp -Wall -Wextra scripts\membw.cpp -o build\membw.exe ; build\membw.exe   # twice
+python scripts\analyze_bench.py
+```
+
+```bash
+# WSL2 (Ubuntu), repository folder /mnt/e/hus/ttss/TTSS
+cmake -S . -B /root/ttss-release -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build /root/ttss-release
+/root/ttss-release/test_seq ; /root/ttss-release/test_m3 --quick
+# GIT_CONFIG_COUNT=2 safe.directory=/mnt/e/hus/ttss/TTSS core.autocrlf=true (environment only)
+python3 scripts/run_bench.py wsl --exe /root/ttss-release/seam_carving --warmup 1 --rounds 5
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Overnight run, 5 experiments | Every run exit 0 and output identical to seq | 1053/1053 exit 0, `hash_ok` 1; `git_dirty: false` in all 5 metadata files | Passed |
+| Benchmark binary vs sources | Up to date | `ninja -n`: "no work to do" | Passed |
+| Effective compile flags | `-O2` | `build.ninja`: `-O2 -DNDEBUG -std=c++17 -Wall -Wextra` (+ `-fopenmp`) | Passed (metadata field showed the CMake cache default `-O3` → script fixed) |
+| `run_bench.py` after the changes | Rows and metadata correct | Windows smoke test 2/2 OK (flags recorded); Linux smoke test 3/3 OK | Passed |
+| Linux Release build | 0 failed | `test_seq` 65 checks, 0 failed; `test_m3 --quick` 6 801 checks, 0 failed | Passed |
+| `wsl` experiment | Every run OK | 138/138 exit 0, `hash_ok` 1, commit `dc4bde2`, `git_dirty: false` | Passed |
+| `membw` | Two consistent runs | Differences ≤ 2 % except 4-thread read (44.7 / 40.9 GB/s) | Passed |
+| `analyze_bench.py` | Tables + plots, no error | Exit 0, 11 plots, layout checked by viewing every plot | Passed |
+
+#### 7. Problems Encountered
+
+- **A quick `awk` check reported 360 "failed" runs.** False alarm: the `config` field contains commas inside
+  quotes, so `awk -F,` split it into the wrong columns. The check was repeated with Python's `csv` module:
+  0 failures.
+- **Metadata field `CMAKE_CXX_FLAGS_RELEASE = -O3`.** It is the CMake cache default and is not used (the build
+  used `-O2`). The raw files were not edited; the problem is explained in report §2 and fixed for future runs.
+- **Git inside WSL** refuses the repository ("dubious ownership"), and with CRLF files it would report a
+  dirty tree. Solved with temporary `GIT_CONFIG_*` environment variables; no configuration file was changed.
+  `run_bench.py` no longer reports "clean" when git fails.
+- **Fixed-part regression.** It was biased by the shrinking width and by one slow run (7680×4320 seq,
+  90.1 s vs 70.4–71.2 s). It is now fitted on medians and complemented by the direct measurement.
+- **Plot layout.** Legends covered data, the "oversubscribed" label covered points, log labels overlapped, and
+  the ideal line squashed the speedup curves. All fixed and checked visually.
+- **First report draft.** Some numbers were wrong (min region cost per seam, idle-gap classification,
+  thread-creation bound, mixed thread ranges in the Windows/Linux comparison). They were corrected against the
+  data before the commit.
+- `analyze_bench.py` and `scripts/membw.cpp` were edited while the `wsl` experiment was running. Neither takes
+  part in the measurement (no build, no CPU load).
+- The WSL timestamps are UTC (Windows: UTC+7).
+
+#### 8. Decisions and Reasoning
+
+- **Supplementary `wsl` experiment.** Without it the main finding (parallel DP 1.8–92× slower) could only be
+  explained by a hypothesis. The same code on the same CPU with another OpenMP runtime separates "algorithm"
+  from "platform". It is reported separately and labelled as supplementary.
+- **`membw` reference.** The memory-bandwidth analysis needs the machine's real bandwidth, not only the
+  theoretical 51.2 GB/s.
+- **Speedups inside each experiment.** `T_seq` is taken from the same session and platform.
+- **Direct measurement of the fixed part.** An intercept is an extrapolation, so the direct value is used.
+
+#### 9. Remaining Tasks
+
+- Pull requests for `m3-testing` and `m4-benchmark` and a team review (nothing pushed yet).
+- Not tested: `OMP_PLACES` / `OMP_PROC_BIND`; DP variant B at sizes other than 1920×1080; CPU frequency
+  logging; hardware counters.
+- M5 suggestions (report §7.10): keep DP and min sequential on Windows, use a size threshold for parallel
+  regions, one region per seam, a DP scheme with fewer barriers, or another runtime.
+
+#### 10. Next Step
+
+Open the pull requests (M3, M4), then M5 (optimization) based on report §7.
+
+### [2026-11-19] – Publish M3 + M4 for review (one pull request)
+
+**Milestone:** M3, M4
+
+**Status:** Completed (branch pushed; pull request opened by the user on GitHub, review pending).
+
+#### 1. Objective
+
+Make the M3 and M4 work available to the team for review and merge into `main`.
+
+#### 2. Work Performed
+
+- Checked that `origin/main` (3eae021) has no commits missing from `m4-benchmark`, so the merge has no
+  conflicts.
+- Pushed `m4-benchmark`. It was created from `m3-testing`, so it contains both milestones (9 commits).
+  Decision (user): **one** pull request `m4-benchmark → main` for M3 and M4 together.
+
+#### 3. Technical Explanation
+
+No code change. The pull request lets the other members read the diff, rerun `ctest -L quick`, and
+comment before the work enters `main`.
+
+#### 4. Files Created or Modified
+
+| File       | Action   | Description       |
+| ---------- | -------- | ----------------- |
+| WORKLOG.md | Modified | Added this entry  |
+
+#### 5. Commands Executed
+
+```bash
+git fetch origin
+git log --oneline main..m4-benchmark      # 9 commits (M3: 4, M4: 5)
+git push -u origin m4-benchmark
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Push `m4-benchmark` | Branch on GitHub | `origin/m4-benchmark` created, local branch tracks it | Passed |
+
+#### 7. Problems Encountered
+
+- The GitHub CLI (`gh`) is not available on this machine, so the pull request is opened in the browser
+  from https://github.com/MyleCutie45/TTSS/pull/new/m4-benchmark.
+
+#### 8. Decisions and Reasoning
+
+- One pull request instead of two: `m4-benchmark` already contains all M3 commits; a single review avoids
+  reviewing M3 twice.
+- The branch `m3-testing` is kept (it is fully contained in `m4-benchmark`) and not pushed.
+
+#### 9. Remaining Tasks
+
+- Team review and merge of the pull request.
+
+#### 10. Next Step
+
+After the merge: M5 (optimization) based on `docs/benchmark_report.md` §7.10.
+
 ---
 
 # Technical Decision History
@@ -615,17 +1193,24 @@ Record important architecture and algorithmic decisions here.
 | 2026-11-17 | CLI + fixed 15-column CSV line (`:` / `+` inside fields) | Stable interface for M3/M4 scripts | Free-form output |
 | 2026-11-17 | CLI uses `static` schedule when `OMP_SCHEDULE` is unset | libgomp default `dynamic,1` made DP extremely slow (measured) | Keep libgomp default; hard-code schedule |
 | 2026-11-17 | `-O2` set explicitly for Release | Contract; CMake's GCC default is `-O3` | `-O3` |
+| 2026-11-19 | Benchmark metadata takes the compile flags from `build.ninja` | `CMakeCache.txt` keeps CMake's default `-O3`, which `CMakeLists.txt` overrides with `-O2` | Read the cache (wrong value) |
+| 2026-11-19 | Speedup always against `T_seq` of the same experiment (session, platform) | Equal conditions for both sides of the ratio | One global `T_seq` per size |
+| 2026-11-19 | Fixed part of a run measured directly (`t_total − Σ stages`); regressions only as illustration | The per-seam cost shrinks with the width; intercepts are extrapolations | `t = a + b·seams` (biased: 17–21 % "fixed part") |
+| 2026-11-19 | Supplementary Linux run in WSL2 (`wsl`) and memory-bandwidth reference (`membw`) | Separate algorithm from platform for the DP overhead; real bandwidth for the memory analysis | Profiling libgomp on Windows (no tools set up); theoretical bandwidth only |
 
 # Known Issues
 
 | Issue | Description | Priority | Status |
 | ----- | ----------- | -------- | ------ |
-| No ThreadSanitizer | TSan is not supported by MinGW on Windows; races must be detected by repeated seq-vs-omp comparison tests | Medium | Open (accepted limitation) |
+| No ThreadSanitizer | TSan is not supported by MinGW on Windows; races must be detected by repeated seq-vs-omp comparison tests | Medium | Mitigated in M3: TSan + Archer and ASan run on Linux/WSL (`scripts/run_sanitizers.sh`); Windows build itself still has no sanitizer |
+| TSan false positives | libomp / libtbb (OpenCV) are not built with TSan → false reports; `tests/tsan.supp` uses `called_from_lib:` only (a `race:libomp.so` rule hides real races) | Info | Handled (validated with mutant M1) |
 | `python` resolves to MSYS2 Python | MSYS2 is first in PATH, so `python` has no Pillow/numpy/matplotlib. Call another Python (e.g. conda) by its full path | Low | Open (workaround known) |
-| Hybrid CPU | i9-13900H has P- and E-cores; speedup beyond 6 threads will not be linear; affects M4 analysis | Info | Open |
-| 8K benchmark image | Largest source photo is 6000x4000; 7680x4320 needs upscaling | Low | Open (to note in M4 report) |
-| Expensive OpenMP synchronization | libgomp on Windows: region 8–261 µs, barrier 15–213 µs (1–20 threads, measured). Parallel DP (one barrier per row) is 30–90× slower than sequential DP | High | Open (to analyse in M4, address in M5) |
+| Hybrid CPU | i9-13900H has P- and E-cores; speedup beyond 6 threads will not be linear; affects M4 analysis | Info | Not applicable to the M4 results: the benchmark laptop (i7-1065G7) has 4 equal cores + Hyper-Threading; hypothesis not testable (benchmark report §8) |
+| 8K benchmark image | Largest source photo is 6000x4000; 7680x4320 needs upscaling | Low | Closed: all large benchmark images are upscaled from the 800-px sources; documented in benchmark report §3; the content experiment shows no timing effect |
+| Expensive OpenMP synchronization | libgomp on Windows: region 8–261 µs, barrier 15–213 µs (1–20 threads, measured). Parallel DP (one barrier per row) is 30–90× slower than sequential DP. M4: +22…+167 µs per DP row (2–16 threads, i7-1065G7); the same code under Linux (WSL2) needs −0.4…+0.1 µs (2–4 threads) → caused by the Windows OpenMP runtime | High | Analysed in M4 (benchmark report §7.1); open for M5 |
 | libgomp default schedule | `schedule(runtime)` without `OMP_SCHEDULE` = `dynamic,1` | Medium | Fixed in CLI (static default) |
+| Benchmark metadata flags | `results/*.meta.json` of the 2026-11-19 Windows run show `CMAKE_CXX_FLAGS_RELEASE = -O3` (CMake cache default, not used; the build used `-O2`) | Low | Fixed in `run_bench.py` (`dc4bde2`); explained in benchmark report §2 |
+| CPU frequency not recorded | Laptop turbo / power limits may change the clock between configurations; some effects in the report are hypotheses for this reason | Info | Open (limitation) |
 
 # Benchmark History
 
@@ -633,7 +1218,19 @@ Record actual benchmark experiments.
 
 | Date | Image Size | Version | Threads | Execution Time | Notes |
 | ---- | ---------- | ------- | ------- | -------------- | ----- |
-|      |            |         |         |                |       |
+| 2026-11-19 | 1920×1080 → −20 % | seq | – | 1.934 s | Median of 5 (`main_nodp`); Windows, i7-1065G7, GCC 16.2 `-O2` |
+| 2026-11-19 | 1920×1080 → −20 % | omp energy+min+removal | 4 | 1.347 s (speedup 1.44) | `main_nodp`, 5 runs |
+| 2026-11-19 | 1920×1080 → −20 % | omp all stages (DP variant A) | 4 | 20.317 s (speedup 0.10) | `main`, 3 runs |
+| 2026-11-19 | 512×512 → −20 % | omp energy+min+removal | 4 | 0.062 s (speedup 1.03) | `main_nodp`; seq 0.064 s |
+| 2026-11-19 | 7680×4320 → −10 % | seq | – | 70.737 s | `main_nodp`, 5 runs (one outlier 90.1 s) |
+| 2026-11-19 | 7680×4320 → −10 % | omp energy+min+removal | 8 | 39.602 s (speedup 1.79, best) | `main_nodp` |
+| 2026-11-19 | 7680×4320 → −10 % | omp all stages (DP variant A) | 4 | 184.084 s (speedup 0.39) | `main`, 3 runs |
+| 2026-11-19 | 1920×1080 → −20 % | Linux/WSL2 seq | – | 2.101 s | `wsl`, 5 runs; GCC 15.2, Linux libgomp |
+| 2026-11-19 | 1920×1080 → −20 % | Linux/WSL2 omp all stages (DP variant A) | 4 | 1.548 s (speedup 1.36) | `wsl` |
+| 2026-11-19 | 7680×4320 → −10 % | Linux/WSL2 omp all stages (DP variant A) | 4 | 37.975 s (speedup 1.71) | `wsl`; seq 64.793 s |
+
+Execution time = median `t_total` (algorithm only, no file I/O). Full tables: `results/summary.md`; analysis:
+`docs/benchmark_report.md`.
 
 **Important:** Only record experimentally measured values. Never insert estimated or fabricated results.
 
@@ -669,6 +1266,25 @@ Notes so far (2026-11-17):
 - **Testing without ThreadSanitizer:** races are detected by comparing every intermediate result with the
   sequential version, many times, with many thread counts and schedules.
 
+Notes from M4 (2026-11-19, measured on the i7-1065G7):
+
+- **Amdahl's law in practice:** with the DP sequential, 60 % of the run is parallel → at most 2.5× even with
+  infinitely many threads; measured 1.5× with 4 threads (84 % of the Amdahl limit for 4 threads).
+- **Synchronization cost depends on the runtime / OS:** the same barrier costs about 45 µs on Windows
+  (libgomp/MinGW) and about 1 µs under Linux on the same CPU. Rule: parallelize only when the work between two
+  synchronizations is much larger than one synchronization (break-even DP width ≈ 56 000 px on Windows,
+  ≈ 1 200–1 800 px under Linux, with 4 threads).
+- **Region start-up cost:** a parallel region that follows a long sequential phase costs about 0.2 ms more
+  (threads must be woken up) → parallel min and small-image removal are slower than sequential.
+- **Schedules:** `dynamic,1` costs about 25 ns per iteration (shared counter); `static,1` makes neighbouring
+  columns belong to different threads → false sharing on the cache lines of `M` (10–14 % slower).
+- **Compute-bound vs memory-bound test:** if the time per element stays the same when the data no longer fit
+  in the cache (3 MB → 398 MB), the loop is compute-bound (energy, DP); if it grows, it is memory-bound
+  (removal: 6.5× slower per pixel from RAM).
+- **Hyper-Threading:** 8 threads on 4 cores gave only +2–3 % here; the useful parallelism is 4.
+- **Models:** the intercept of a fitted line is an extrapolation; with the wrong model (constant cost per
+  seam) it suggested a 20 % "fixed part" that the direct measurement (≤ 0.5 %) does not show.
+
 ---
 
 # Current Development Summary
@@ -683,9 +1299,13 @@ This section must always reflect the latest project state.
 - M1: sequential implementation, CLI, README, unit tests (65 checks pass).
 - M2: OpenMP implementation (all stages, DP variants A/B), equivalence tests (147 368 checks pass).
 
+- M0–M2 tests reproduced on the M3/M4 machine (i7-1065G7): build OK, `ctest` 10/10 (2026-11-18).
+- M3: `tests/test_m3.cpp` (71 580 checks), mutation check 8/8, ASan + TSan clean, `docs/testing_report.md` (2026-11-19).
+- M4: overnight benchmark (1053 runs) + Linux/WSL2 comparison (138 runs) + memory-bandwidth reference, all runs correct; `results/`, `docs/figures/`, `docs/benchmark_report.md` (2026-11-19). DP-sequential version 1.4–1.8× faster (≥ 1920×1080); all-stages version slower on Windows (Windows OpenMP synchronization cost), 1.36–1.71× under Linux.
+
 **In Progress:**
 
-- None (Member A's work M0–M2 is done and pushed).
+- Review of the pull request `m4-benchmark → main` (contains M3 and M4), opened 2026-11-19.
 
 **Blocked:**
 
@@ -693,4 +1313,4 @@ This section must always reflect the latest project state.
 
 **Next Recommended Task:**
 
-- Members B and C confirm the interface contract (`docs/architecture.md`), then start M3 (Member B) and M4/M5 (Member C).
+- Team review and merge of the M3 + M4 pull request; then M5 (optimization) using `docs/benchmark_report.md` §7.10. (Agreement of the other members on `docs/architecture.md` still not recorded.)

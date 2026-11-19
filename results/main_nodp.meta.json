@@ -1,0 +1,33 @@
+[
+  {
+    "experiment": "main_nodp",
+    "rounds": 5,
+    "warmup": 1,
+    "seed": 2026,
+    "configurations": 72,
+    "date": "2026-11-19T02:20:09",
+    "platform": "Windows-11-10.0.22631-SP0",
+    "logical_processors": 8,
+    "python": "3.12.1",
+    "compiler": "g++ (Rev7, Built by MSYS2 project) 16.2.0",
+    "git_commit": "c93114d",
+    "git_dirty": false,
+    "env": {
+      "OMP_SCHEDULE": null,
+      "OMP_PLACES": null,
+      "OMP_PROC_BIND": null,
+      "OMP_WAIT_POLICY": null,
+      "OMP_DYNAMIC": null
+    },
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+    "OpenMP_CXX_FLAGS": "-fopenmp",
+    "cpu": "Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz",
+    "cores": "4",
+    "base_mhz": "1498",
+    "ram_gb": "31.8",
+    "on_ac_power": true,
+    "power_scheme": "Power Scheme GUID: 48684d4a-8524-4093-8a63-ea7132b79c1c  (HP Recommended)",
+    "power_mode_ac": "Best performance"
+  }
+]
