@@ -1,0 +1,1718 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chuyên khảo Seam Carving</title>
+<meta name="description" content="Giáo trình nhập môn Seam Carving từ A-Z cho sinh viên năm 1-2: kiến thức toán nền tảng, ý tưởng thuật toán, phân tích paper Avidan & Shamir 2007 và định hướng song song hóa với OpenMP.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbfaf7; --surface:#ffffff; --surface-2:#f3f1ec; --text:#1d1b18; --muted:#5f5a52;
+  --border:#e2ddd3; --accent:#b4441f; --accent-2:#1f6f8b; --accent-soft:#f6e3da;
+  --def:#e8f1f5; --def-b:#1f6f8b; --ex:#eef5e9; --ex-b:#3f7d2c; --warn:#fbf1dc; --warn-b:#b07a12;
+  --q:#f1ecf7; --q-b:#6a4a99; --code-bg:#f5f2ec; --seam:#e0322a; --hl:#ffe08a; --hl2:#bfe3f0;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16151a; --surface:#1e1d23; --surface-2:#26252c; --text:#ebe8e2; --muted:#a8a39a;
+    --border:#38363e; --accent:#ef8a5f; --accent-2:#6cc0dc; --accent-soft:#3a2720;
+    --def:#1b2a31; --def-b:#6cc0dc; --ex:#1f2a1b; --ex-b:#8cc66f; --warn:#2f2717; --warn-b:#e0b04e;
+    --q:#261f31; --q-b:#b598e0; --code-bg:#24232a; --seam:#ff5a4f; --hl:#6b5a1d; --hl2:#1e4a5a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16151a; --surface:#1e1d23; --surface-2:#26252c; --text:#ebe8e2; --muted:#a8a39a;
+  --border:#38363e; --accent:#ef8a5f; --accent-2:#6cc0dc; --accent-soft:#3a2720;
+  --def:#1b2a31; --def-b:#6cc0dc; --ex:#1f2a1b; --ex-b:#8cc66f; --warn:#2f2717; --warn-b:#e0b04e;
+  --q:#261f31; --q-b:#b598e0; --code-bg:#24232a; --seam:#ff5a4f; --hl:#6b5a1d; --hl2:#1e4a5a;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Noto Serif",Georgia,serif;font-size:17px;line-height:1.72}
+h1,h2,h3,h4,.ui{font-family:"Be Vietnam Pro",system-ui,sans-serif}
+a{color:var(--accent-2)}
+code,pre,.mono{font-family:"JetBrains Mono",Consolas,monospace;font-size:.86em}
+code{background:var(--code-bg);padding:.08em .35em;border-radius:4px}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;line-height:1.55}
+pre code{background:none;padding:0}
+.layout{display:flex;min-height:100vh}
+nav.toc{position:sticky;top:0;height:100vh;overflow-y:auto;width:290px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:22px 18px;font-family:"Be Vietnam Pro",sans-serif;font-size:14px;line-height:1.45}
+nav.toc .brand{font-weight:700;font-size:16px;margin-bottom:4px}
+nav.toc .sub{color:var(--muted);font-size:12.5px;margin-bottom:16px}
+nav.toc .part{margin-top:16px;font-weight:700;color:var(--accent);text-transform:uppercase;font-size:11.5px;letter-spacing:.06em}
+nav.toc a{display:block;color:var(--text);text-decoration:none;padding:4px 8px;border-radius:6px}
+nav.toc a:hover{background:var(--surface-2)}
+main{flex:1;min-width:0;padding:40px 56px 120px;max-width:920px;margin:0 auto}
+.topbar{display:none}
+.hero{border-bottom:2px solid var(--border);padding-bottom:26px;margin-bottom:30px}
+.hero .kicker{font-family:"Be Vietnam Pro",sans-serif;color:var(--accent);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px}
+.hero h1{font-size:40px;line-height:1.15;margin:8px 0 12px}
+.hero p{color:var(--muted);margin:0}
+h2.part-title{font-size:15px;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin:70px 0 0;border-top:2px solid var(--accent);padding-top:12px}
+h2.chap{font-size:29px;line-height:1.25;margin:14px 0 14px}
+h3{font-size:20px;margin:32px 0 8px}
+h4{font-size:16.5px;margin:22px 0 6px}
+.box{border-left:4px solid;border-radius:0 8px 8px 0;padding:12px 18px;margin:18px 0}
+.box .lbl{font-family:"Be Vietnam Pro",sans-serif;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px}
+.box p:first-of-type{margin-top:0}.box p:last-child{margin-bottom:0}
+.def{background:var(--def);border-color:var(--def-b)}.def .lbl{color:var(--def-b)}
+.ex{background:var(--ex);border-color:var(--ex-b)}.ex .lbl{color:var(--ex-b)}
+.warn{background:var(--warn);border-color:var(--warn-b)}.warn .lbl{color:var(--warn-b)}
+.q{background:var(--q);border-color:var(--q-b)}.q .lbl{color:var(--q-b)}
+details{margin:6px 0}
+details summary{cursor:pointer;font-family:"Be Vietnam Pro",sans-serif;font-size:14.5px;font-weight:600}
+.eq{text-align:center;margin:16px 0;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:18px;overflow-x:auto}
+.eq i,.m i{font-family:"Noto Serif",serif}
+.tw{overflow-x:auto;margin:14px 0}
+table{border-collapse:collapse;font-size:15px;min-width:100%}
+th,td{border:1px solid var(--border);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--surface-2);font-family:"Be Vietnam Pro",sans-serif;font-size:14px}
+table.grid td{text-align:center;font-family:"JetBrains Mono",monospace;min-width:44px}
+.seamcell{background:var(--seam)!important;color:#fff;font-weight:700}
+.demo{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin:22px 0}
+.demo h4{margin-top:0}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0;font-family:"Be Vietnam Pro",sans-serif;font-size:14px}
+button{font-family:"Be Vietnam Pro",sans-serif;font-size:14px;padding:7px 13px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button:hover{filter:brightness(1.06)}
+input[type=range]{accent-color:var(--accent);max-width:100%}
+.canv-row{display:grid;grid-template-columns:1fr;gap:12px}
+.canv-row figure{margin:0}
+.canv-row figcaption{font-family:"Be Vietnam Pro",sans-serif;font-size:13px;color:var(--muted);margin-bottom:4px}
+canvas{display:block;image-rendering:pixelated;border:1px solid var(--border);border-radius:4px;max-width:100%}
+.dpgrid td{transition:background .15s}
+.dpgrid td.cur{background:var(--hl)}
+.dpgrid td.par{background:var(--hl2)}
+.dpgrid td small{display:block;color:var(--muted);font-size:11px}
+.status{font-family:"JetBrains Mono",monospace;font-size:14px;background:var(--code-bg);padding:8px 12px;border-radius:6px;min-height:2.4em}
+.diagram{margin:18px 0;text-align:center}
+.diagram svg{max-width:100%;height:auto}
+.small{font-size:14px;color:var(--muted)}
+.pill{display:inline-block;font-family:"Be Vietnam Pro",sans-serif;font-size:12px;padding:1px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+hr{border:none;border-top:1px solid var(--border);margin:40px 0}
+.themebtn{margin-top:18px;width:100%}
+@media (max-width:900px){
+  .layout{display:block}
+  nav.toc{position:fixed;z-index:20;left:0;top:0;transform:translateX(-100%);transition:transform .2s;width:84%;max-width:320px;box-shadow:0 0 40px rgba(0,0,0,.3)}
+  nav.toc.open{transform:none}
+  .topbar{display:flex;position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:8px 16px;align-items:center;gap:10px;font-family:"Be Vietnam Pro",sans-serif;font-size:14px;font-weight:600}
+  main{padding:20px 16px 90px}
+  .hero h1{font-size:30px}
+  h2.chap{font-size:24px}
+  body{font-size:16px}
+}
+@media (min-width:760px){.canv-row{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="topbar"><button id="tocBtn" aria-label="Mục lục">☰ Mục lục</button><span>Giáo trình Seam Carving</span></div>
+<div class="layout">
+<nav class="toc" id="toc">
+  <div class="brand">Seam Carving từ A–Z</div>
+  <div class="sub">Giáo trình cho môn Parallel Computing</div>
+  <a href="#loi-noi-dau">Lời nói đầu &amp; cách đọc</a>
+  <div class="part">Phần I · Kiến thức nền</div>
+  <a href="#c1">1. Bài toán thay đổi kích thước ảnh</a>
+  <a href="#c2">2. Ảnh số là một ma trận</a>
+  <a href="#c3">3. Đạo hàm, sai phân &amp; gradient</a>
+  <a href="#c4">4. Tích chập &amp; toán tử Sobel</a>
+  <a href="#c5">5. Đồ thị &amp; đường đi ngắn nhất</a>
+  <a href="#c6">6. Quy hoạch động</a>
+  <a href="#c7">7. Độ phức tạp thuật toán</a>
+  <div class="part">Phần II · Ý tưởng Seam Carving</div>
+  <a href="#c8">8. Seam là gì?</a>
+  <a href="#c9">9. Hàm năng lượng</a>
+  <a href="#c10">10. Tìm seam tối ưu bằng DP</a>
+  <a href="#c11">11. Xóa seam &amp; demo trực quan</a>
+  <a href="#c12">12. Phóng to, xóa vật thể, bảo vệ vùng</a>
+  <div class="part">Phần III · Phân tích paper</div>
+  <a href="#c13">13. Tổng quan paper</a>
+  <a href="#c14">14. Đọc kỹ từng phần</a>
+  <a href="#c15">15. Đánh giá phê bình &amp; hướng mở rộng</a>
+  <div class="part">Phần IV · Hướng tới song song</div>
+  <a href="#c16">16. Kiến thức song song tối thiểu</a>
+  <a href="#c17">17. Phân tích tính song song của Seam Carving</a>
+  <a href="#c18">18. Lộ trình project</a>
+  <div class="part">Phần V · Từ lý thuyết tới code</div>
+  <a href="#c19">19. Thiết kế dữ liệu &amp; kiểu số</a>
+  <a href="#c20">20. OpenCV tối thiểu</a>
+  <a href="#c21">21. CMake + OpenMP trên Windows</a>
+  <a href="#c22">22. Cài đặt tuần tự chi tiết</a>
+  <div class="part">Phần VI · Song song chuyên sâu</div>
+  <a href="#c23">23. Work–span &amp; giới hạn lý thuyết</a>
+  <a href="#c24">24. OpenMP nâng cao</a>
+  <a href="#c25">25. Phân rã hình thang</a>
+  <a href="#c26">26. Forward energy</a>
+  <div class="part">Phần VII · Kiểm thử &amp; đo đạc</div>
+  <a href="#c27">27. Kiểm thử tính đúng</a>
+  <a href="#c28">28. Benchmark đúng phương pháp</a>
+  <a href="#c29">29. Lỗi thường gặp</a>
+  <a href="#c30">30. Ôn tập &amp; câu hỏi bảo vệ</a>
+  <div class="part">Phụ lục</div>
+  <a href="#thuat-ngu">Bảng thuật ngữ</a>
+  <a href="#tai-lieu">Tài liệu tham khảo</a>
+  <button class="themebtn" id="themeBtn">Đổi giao diện sáng / tối</button>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="kicker">Giáo trình nhập môn</div>
+  <h1>Seam Carving: chuyên khảo từ nền tảng đến project song song</h1>
+  <p>Từ ma trận điểm ảnh, đạo hàm và quy hoạch động, đến phân tích đầy đủ paper gốc của Avidan &amp; Shamir (SIGGRAPH 2007), rồi tới cài đặt C++/OpenCV, song song hóa OpenMP, kiểm thử và benchmark. 30 chương, 4 demo tương tác. Viết cho sinh viên đại học năm 1–2.</p>
+</header>
+
+<section id="loi-noi-dau">
+<h2 class="chap">Lời nói đầu &amp; cách đọc giáo trình</h2>
+<p>Chào em. Trong học kỳ này, em sẽ cài đặt <b>Seam Carving</b>, một thuật toán thay đổi kích thước ảnh mà không làm méo các vật thể quan trọng, rồi song song hóa nó bằng <b>OpenMP</b>. Đề tài này rất hợp với môn Tính toán song song vì nó có đủ mọi thứ: những phần tính toán song song "dễ như ăn kẹo", những phần có <i>phụ thuộc dữ liệu</i> khó song song, và một phần thuần tuần tự không thể song song. Hiểu được vì sao từng phần như vậy chính là mục tiêu thật sự của môn học.</p>
+<p>Giáo trình chia làm bốn phần:</p>
+<ol>
+  <li><b>Phần I – Kiến thức nền:</b> mọi thứ toán và tin học em cần, giải thích từ đầu: ảnh số, đạo hàm, gradient, tích chập, đồ thị, quy hoạch động, độ phức tạp.</li>
+  <li><b>Phần II – Ý tưởng Seam Carving:</b> xây dựng thuật toán từng bước, kèm ví dụ tính tay và demo chạy ngay trong trình duyệt.</li>
+  <li><b>Phần III – Phân tích paper:</b> đọc paper gốc theo từng phần, hiểu nó đóng góp gì, chỗ nào mạnh, chỗ nào yếu.</li>
+  <li><b>Phần IV – Hướng tới song song:</b> phần nào song song được, đồng bộ hóa đặt ở đâu, rủi ro race condition nằm ở chỗ nào.</li>
+  <li><b>Phần V – Từ lý thuyết tới code:</b> thiết kế dữ liệu, OpenCV, CMake + OpenMP trên Windows, cài đặt tuần tự có chứng minh, cập nhật năng lượng cục bộ, chèn seam.</li>
+  <li><b>Phần VI – Song song chuyên sâu:</b> mô hình work–span, OpenMP nâng cao (một vùng parallel, mô hình bộ nhớ, argmin không cần reduction), phân rã hình thang giảm barrier, forward energy.</li>
+  <li><b>Phần VII – Kiểm thử &amp; đo đạc:</b> chứng minh bản song song đúng, benchmark đúng phương pháp, bảng lỗi thường gặp, câu hỏi bảo vệ.</li>
+</ol>
+<p class="small">Đọc theo thứ tự nếu mới bắt đầu. Khi đang code, Phần V–VII là "sổ tay tra cứu".</p>
+<div class="box warn"><span class="lbl">Cách học hiệu quả</span>
+<p>Đừng đọc lướt. Mỗi chương có <b>ví dụ tính tay</b> và <b>câu hỏi tự kiểm tra</b> (bấm vào để xem đáp án). Hãy lấy giấy bút làm lại các ví dụ trước khi xem lời giải. Thầy đảm bảo em hiểu bằng tay thì lúc code sẽ nhanh hơn nhiều.</p>
+</div>
+<p class="small">Ký hiệu trong sách: ảnh có <i>H</i> hàng (chiều cao) và <i>W</i> cột (chiều rộng). Pixel ở hàng <i>i</i>, cột <i>j</i> viết là <i>I</i>(<i>i</i>, <i>j</i>), đánh số từ 0 như trong C++. Paper gốc dùng <i>n</i> × <i>m</i> (n hàng, m cột); Phần III sẽ đối chiếu hai cách ký hiệu.</p>
+</section>
+
+<!-- ======================= PHẦN I ======================= -->
+<h2 class="part-title">Phần I · Kiến thức nền</h2>
+
+<section id="c1">
+<h2 class="chap">Chương 1. Bài toán thay đổi kích thước ảnh</h2>
+<p>Một bức ảnh 1920×1080 cần hiển thị trên điện thoại dọc, trên ô thumbnail vuông, hoặc trên banner rất dài. Ta cần đổi <b>tỉ lệ khung hình</b> (aspect ratio) của ảnh. Bài toán này gọi là <b>image retargeting</b>: "nhắm lại" ảnh cho một kích thước đích mới.</p>
+<h3>1.1 Hai cách truyền thống và nhược điểm</h3>
+<div class="tw"><table>
+<tr><th>Cách</th><th>Làm gì</th><th>Nhược điểm</th></tr>
+<tr><td><b>Scaling</b> (co giãn)</td><td>Co đều mọi pixel theo một chiều</td><td>Khi tỉ lệ đổi, vật thể bị <b>méo</b>: người béo ra hoặc gầy đi, hình tròn thành elip.</td></tr>
+<tr><td><b>Cropping</b> (cắt xén)</td><td>Cắt bỏ phần mép ảnh</td><td>Mất nội dung ở biên. Nếu hai vật quan trọng nằm ở hai mép thì không giữ được cả hai.</td></tr>
+</table></div>
+<p>Cả hai cách đều "mù nội dung" (content-unaware): chúng không biết phần nào của ảnh quan trọng.</p>
+<h3>1.2 Ý tưởng lớn của Seam Carving</h3>
+<p>Hãy tưởng tượng một ảnh phong cảnh: bầu trời xanh đơn điệu, ở giữa có một ngôi nhà. Nếu cần làm ảnh hẹp lại, hợp lý nhất là bỏ bớt <b>một ít bầu trời</b> (nơi "không có gì xảy ra") và giữ nguyên ngôi nhà. Seam Carving tự động hóa trực giác đó:</p>
+<ol>
+  <li>Đo xem mỗi pixel "quan trọng" cỡ nào bằng một <b>hàm năng lượng</b>.</li>
+  <li>Tìm một <b>đường nối (seam)</b> chạy từ trên xuống dưới, mỗi hàng đi qua đúng một pixel, sao cho tổng năng lượng nhỏ nhất.</li>
+  <li>Xóa đường đó. Ảnh hẹp đi 1 cột. Lặp lại cho tới khi đạt chiều rộng mong muốn.</li>
+</ol>
+<p>Để làm được ba bước này, ta cần: biểu diễn ảnh (chương 2), đo "độ quan trọng" bằng đạo hàm (chương 3–4), tìm đường tốt nhất bằng đồ thị và quy hoạch động (chương 5–6), và đánh giá chi phí (chương 7).</p>
+</section>
+
+<section id="c2">
+<h2 class="chap">Chương 2. Ảnh số là một ma trận</h2>
+<h3>2.1 Pixel và ma trận</h3>
+<div class="box def"><span class="lbl">Định nghĩa</span>
+<p>Một <b>ảnh xám</b> (grayscale) kích thước <i>H</i>×<i>W</i> là một ma trận <i>I</i> có <i>H</i> hàng, <i>W</i> cột. Mỗi phần tử <i>I</i>(<i>i</i>, <i>j</i>) là một <b>pixel</b>, giá trị thường là số nguyên trong [0, 255]: 0 là đen, 255 là trắng.</p>
+<p>Một <b>ảnh màu RGB</b> có 3 kênh: mỗi pixel là bộ ba (<i>R</i>, <i>G</i>, <i>B</i>) với cường độ đỏ, xanh lá, xanh dương.</p>
+</div>
+<div class="tw"><table class="grid" style="min-width:auto;width:auto">
+<tr><th></th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th></tr>
+<tr><th>i=0</th><td>12</td><td>15</td><td>200</td><td>210</td></tr>
+<tr><th>i=1</th><td>10</td><td>14</td><td>205</td><td>208</td></tr>
+<tr><th>i=2</th><td>11</td><td>13</td><td>198</td><td>212</td></tr>
+</table></div>
+<p class="small">Ảnh xám 3×4: bên trái tối, bên phải sáng. Có một "cạnh" (edge) dọc giữa cột 1 và cột 2.</p>
+
+<h3>2.2 Ảnh lưu trong bộ nhớ thế nào?</h3>
+<p>RAM là một dãy byte một chiều, nên ma trận 2 chiều phải "trải phẳng". OpenCV và hầu hết thư viện C/C++ dùng thứ tự <b>row-major</b> (theo hàng): hết hàng 0 mới tới hàng 1. Vị trí phần tử (<i>i</i>, <i>j</i>) trong mảng 1 chiều là:</p>
+<div class="eq">index(<i>i</i>, <i>j</i>) = <i>i</i> · <i>W</i> + <i>j</i></div>
+<p>Với ảnh màu 3 kênh xen kẽ (BGR trong OpenCV), kênh <i>c</i> nằm ở (<i>i</i>·<i>W</i> + <i>j</i>)·3 + <i>c</i>.</p>
+<div class="box warn"><span class="lbl">Vì sao quan trọng cho môn song song</span>
+<p>Duyệt ảnh theo hàng (vòng ngoài <code>i</code>, vòng trong <code>j</code>) đọc bộ nhớ <b>liên tiếp</b>, nên tận dụng tốt <b>cache</b> của CPU. Duyệt theo cột thì nhảy cóc <i>W</i> phần tử mỗi bước và chậm hơn nhiều. Chương 17 sẽ quay lại chuyện này: seam dọc và seam ngang có hiệu năng khác nhau chính vì lý do đó.</p>
+</div>
+
+<h3>2.3 Chuyển ảnh màu sang ảnh xám</h3>
+<p>Hàm năng lượng thường tính trên ảnh xám (hoặc tính trên từng kênh rồi cộng lại). Công thức độ sáng (luminance) chuẩn ITU-R BT.601, cũng là công thức OpenCV dùng trong <code>cv::cvtColor(..., COLOR_BGR2GRAY)</code>:</p>
+<div class="eq"><i>Y</i> = 0.299·<i>R</i> + 0.587·<i>G</i> + 0.114·<i>B</i></div>
+<p>Mắt người nhạy với màu xanh lá nhất nên hệ số của <i>G</i> lớn nhất.</p>
+<div class="box ex"><span class="lbl">Ví dụ</span>
+<p>Pixel (<i>R</i>, <i>G</i>, <i>B</i>) = (200, 100, 50):<br>
+<i>Y</i> = 0.299·200 + 0.587·100 + 0.114·50 = 59.8 + 58.7 + 5.7 = 124.2 ≈ 124.</p>
+</div>
+<div class="box q"><span class="lbl">Tự kiểm tra 2</span>
+<p>Ảnh 4000×3000 (rộng 4000, cao 3000), 3 kênh, mỗi kênh 1 byte. (a) Cần bao nhiêu MB? (b) Pixel (i=10, j=5), kênh 2 nằm ở chỉ số nào?</p>
+<details><summary>Đáp án</summary><p>(a) 4000·3000·3 = 36 000 000 byte ≈ 36 MB (≈ 34.3 MiB). (b) (10·4000 + 5)·3 + 2 = 40005·3 + 2 = 120 017.</p></details>
+</div>
+</section>
+
+<section id="c3">
+<h2 class="chap">Chương 3. Đạo hàm, sai phân &amp; gradient</h2>
+<p>Câu hỏi trung tâm: <b>làm sao máy tính biết pixel nào "quan trọng"?</b> Câu trả lời đơn giản mà paper dùng: pixel quan trọng là pixel nằm ở nơi ảnh <b>thay đổi mạnh</b>, tức cạnh, đường viền, kết cấu. Vùng phẳng như bầu trời hay bức tường trơn thay đổi rất ít. Đo "thay đổi" chính là việc của <b>đạo hàm</b>.</p>
+<h3>3.1 Nhắc lại đạo hàm một biến</h3>
+<p>Với hàm <i>f</i>(<i>x</i>), đạo hàm đo tốc độ thay đổi:</p>
+<div class="eq"><i>f</i>′(<i>x</i>) = lim<sub><i>h</i>→0</sub> [ <i>f</i>(<i>x</i>+<i>h</i>) − <i>f</i>(<i>x</i>) ] / <i>h</i></div>
+<p>Nếu |<i>f</i>′(<i>x</i>)| lớn thì hàm đang thay đổi nhanh tại <i>x</i>.</p>
+<h3>3.2 Ảnh là hàm rời rạc → dùng sai phân</h3>
+<p>Ảnh chỉ có giá trị tại các tọa độ nguyên, nên không thể cho <i>h</i>→0. Bước nhỏ nhất là <i>h</i> = 1 pixel. Ta xấp xỉ đạo hàm bằng <b>sai phân</b> (finite difference):</p>
+<div class="tw"><table>
+<tr><th>Loại</th><th>Công thức (theo hướng x = cột)</th><th>Ghi chú</th></tr>
+<tr><td>Sai phân tiến</td><td class="m"><i>I</i>(<i>i</i>, <i>j</i>+1) − <i>I</i>(<i>i</i>, <i>j</i>)</td><td>Đơn giản nhất</td></tr>
+<tr><td>Sai phân lùi</td><td class="m"><i>I</i>(<i>i</i>, <i>j</i>) − <i>I</i>(<i>i</i>, <i>j</i>−1)</td><td></td></tr>
+<tr><td>Sai phân trung tâm</td><td class="m">[ <i>I</i>(<i>i</i>, <i>j</i>+1) − <i>I</i>(<i>i</i>, <i>j</i>−1) ] / 2</td><td>Chính xác hơn, đối xứng</td></tr>
+</table></div>
+<div class="box ex"><span class="lbl">Ví dụ</span>
+<p>Một hàng pixel: [10, 12, 11, 200, 205]. Sai phân trung tâm tại <i>j</i> = 2: (200 − 12)/2 = 94, rất lớn, vì có cạnh ngay bên phải. Tại <i>j</i> = 1: (11 − 10)/2 = 0.5, gần như phẳng.</p>
+</div>
+
+<h3>3.3 Đạo hàm riêng và vector gradient</h3>
+<p>Ảnh là hàm <b>hai biến</b> <i>I</i>(<i>x</i>, <i>y</i>). Ta đo thay đổi theo từng hướng riêng:</p>
+<ul>
+  <li>∂<i>I</i>/∂<i>x</i>: thay đổi khi đi <b>ngang</b> (qua các cột). Lớn tại cạnh <b>dọc</b>.</li>
+  <li>∂<i>I</i>/∂<i>y</i>: thay đổi khi đi <b>dọc</b> (qua các hàng). Lớn tại cạnh <b>ngang</b>.</li>
+</ul>
+<div class="box def"><span class="lbl">Định nghĩa: Gradient</span>
+<p>Gradient là vector ∇<i>I</i> = ( ∂<i>I</i>/∂<i>x</i>, ∂<i>I</i>/∂<i>y</i> ). Nó chỉ về hướng ảnh sáng lên nhanh nhất, và độ dài của nó cho biết thay đổi mạnh cỡ nào.</p>
+</div>
+<p>Độ dài (độ lớn) gradient có hai cách đo:</p>
+<div class="eq">L2 (Euclid): |∇<i>I</i>| = √( (∂<i>I</i>/∂<i>x</i>)² + (∂<i>I</i>/∂<i>y</i>)² ) &nbsp;&nbsp;&nbsp;&nbsp; L1: |∂<i>I</i>/∂<i>x</i>| + |∂<i>I</i>/∂<i>y</i>|</div>
+<p>Paper dùng <b>chuẩn L1</b> và gọi là <i>e</i><sub>1</sub>. Lợi thế: không cần căn bậc hai nên tính rất nhanh. Chương 9 sẽ phân tích kỹ.</p>
+
+<h3>3.4 Xử lý biên ảnh</h3>
+<p>Ở cột <i>j</i> = 0 không có <i>j</i> − 1. Các cách phổ biến:</p>
+<ul>
+  <li><b>Clamp / replicate:</b> dùng pixel biên thay cho pixel không tồn tại (<code>j-1 → max(j-1, 0)</code>).</li>
+  <li><b>Reflect:</b> phản chiếu qua biên (mặc định của OpenCV <code>BORDER_REFLECT_101</code>).</li>
+  <li><b>Sai phân một phía:</b> ở biên dùng sai phân tiến hoặc lùi.</li>
+</ul>
+<div class="box warn"><span class="lbl">Lưu ý cho project</span>
+<p>Bản tuần tự và bản song song phải dùng <b>cùng một cách xử lý biên</b>, nếu không kết quả sẽ khác nhau và không so sánh tính đúng được. Hãy ghi rõ lựa chọn này vào WORKLOG.</p>
+</div>
+<div class="box q"><span class="lbl">Tự kiểm tra 3</span>
+<p>Một ảnh có một vạch kẻ <b>ngang</b> màu trắng trên nền đen. Đạo hàm nào lớn tại vạch: ∂I/∂x hay ∂I/∂y?</p>
+<details><summary>Đáp án</summary><p>∂I/∂y. Đi dọc từ trên xuống, giá trị nhảy từ đen sang trắng rồi về đen. Đi ngang dọc theo vạch thì giá trị không đổi, nên ∂I/∂x ≈ 0.</p></details>
+</div>
+</section>
+
+<section id="c4">
+<h2 class="chap">Chương 4. Tích chập &amp; toán tử Sobel</h2>
+<h3>4.1 Tích chập (convolution) là gì?</h3>
+<p>Tích chập là cách "trượt" một ma trận nhỏ gọi là <b>kernel</b> (thường 3×3) lên khắp ảnh. Tại mỗi vị trí, nhân từng phần tử của kernel với pixel tương ứng rồi cộng lại, được giá trị đầu ra cho pixel đó.</p>
+<div class="eq">Out(<i>i</i>, <i>j</i>) = Σ<sub><i>u</i>=−1..1</sub> Σ<sub><i>v</i>=−1..1</sub> <i>K</i>(<i>u</i>, <i>v</i>) · <i>I</i>(<i>i</i>+<i>u</i>, <i>j</i>+<i>v</i>)</div>
+<p class="small">(Nói chính xác, công thức trên là <i>tương quan</i> (correlation). Tích chập thật sự lật kernel 180°. Với các kernel đối xứng hoặc phản đối xứng như Sobel, kết quả chỉ khác nhau về dấu, mà ta lấy trị tuyệt đối nên không ảnh hưởng.)</p>
+<p>Sai phân trung tâm ở chương 3 chính là tích chập với kernel [−1, 0, 1] (chia 2).</p>
+
+<h3>4.2 Toán tử Sobel</h3>
+<p>Sai phân thuần nhạy với nhiễu. Sobel kết hợp sai phân theo một hướng với <b>làm mượt</b> theo hướng kia (trọng số 1-2-1):</p>
+<div class="tw"><table class="grid" style="min-width:auto;width:auto;display:inline-table;margin-right:24px">
+<tr><th colspan="3">G<sub>x</sub></th></tr>
+<tr><td>−1</td><td>0</td><td>1</td></tr><tr><td>−2</td><td>0</td><td>2</td></tr><tr><td>−1</td><td>0</td><td>1</td></tr></table>
+<table class="grid" style="min-width:auto;width:auto;display:inline-table">
+<tr><th colspan="3">G<sub>y</sub></th></tr>
+<tr><td>−1</td><td>−2</td><td>−1</td></tr><tr><td>0</td><td>0</td><td>0</td></tr><tr><td>1</td><td>2</td><td>1</td></tr></table></div>
+<div class="box ex"><span class="lbl">Ví dụ tính tay</span>
+<p>Vùng 3×3 quanh một pixel có cạnh dọc:</p>
+<pre>10  10  100
+10  10  100
+10  10  100</pre>
+<p>G<sub>x</sub> = (−10 + 0 + 100) + 2·(−10 + 0 + 100) + (−10 + 0 + 100) = 90 + 180 + 90 = <b>360</b><br>
+G<sub>y</sub> = −(10 + 20 + 100) + (10 + 20 + 100) = <b>0</b> (các hàng giống nhau, không có cạnh ngang)<br>
+Năng lượng L1 = |360| + |0| = 360.</p>
+</div>
+<p>Trong OpenCV: <code>cv::Sobel(gray, gx, CV_32F, 1, 0, 3)</code> và <code>cv::Sobel(gray, gy, CV_32F, 0, 1, 3)</code>. Cho project, thầy khuyên <b>tự viết vòng lặp</b> tính năng lượng: em sẽ cần song song hóa chính vòng lặp đó bằng OpenMP, và bản tự viết dễ phân tích hơn.</p>
+<div class="box q"><span class="lbl">Tự kiểm tra 4</span>
+<p>Tính năng lượng của một pixel ảnh cần bao nhiêu phép nhân–cộng với Sobel 3×3 (cả G<sub>x</sub> và G<sub>y</sub>)? Việc tính năng lượng pixel này có phụ thuộc kết quả năng lượng của pixel khác không?</p>
+<details><summary>Đáp án</summary><p>Mỗi kernel có 6 hệ số khác 0, nên khoảng 12 phép nhân–cộng (chưa kể lấy trị tuyệt đối và cộng). <b>Không phụ thuộc</b>: năng lượng mỗi pixel chỉ đọc ảnh gốc, không đọc năng lượng pixel khác. Đây là chìa khóa: bước này song song hoàn toàn (embarrassingly parallel).</p></details>
+</div>
+</section>
+
+<section id="c5">
+<h2 class="chap">Chương 5. Đồ thị &amp; đường đi ngắn nhất</h2>
+<h3>5.1 Đồ thị có hướng có trọng số</h3>
+<div class="box def"><span class="lbl">Định nghĩa</span>
+<p>Một <b>đồ thị có hướng</b> gồm các <b>đỉnh</b> (vertex) và các <b>cạnh</b> (edge) có hướng từ đỉnh này tới đỉnh kia. Nếu mỗi đỉnh (hoặc cạnh) có một con số gọi là <b>trọng số</b>, thì chi phí của một đường đi là tổng trọng số dọc theo đường đó. <b>DAG</b> (Directed Acyclic Graph) là đồ thị có hướng <b>không có chu trình</b>: đi mãi không bao giờ quay lại chỗ cũ.</p>
+</div>
+<h3>5.2 Ảnh như một đồ thị lưới</h3>
+<p>Coi mỗi pixel là một đỉnh có trọng số = năng lượng <i>e</i>(<i>i</i>, <i>j</i>). Từ pixel (<i>i</i>, <i>j</i>) vẽ cạnh xuống 3 pixel ở hàng dưới: (<i>i</i>+1, <i>j</i>−1), (<i>i</i>+1, <i>j</i>), (<i>i</i>+1, <i>j</i>+1). Vì cạnh luôn đi <b>xuống</b> nên không có chu trình. Đây là một DAG.</p>
+<div class="diagram">
+<svg viewBox="0 0 420 210" width="420" role="img" aria-label="Lưới pixel: mỗi pixel nối xuống ba pixel bên dưới">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+  <g style="color:var(--muted)" stroke="currentColor" stroke-width="1.6" marker-end="url(#ar)">
+    <line x1="210" y1="52" x2="128" y2="138"/><line x1="210" y1="52" x2="210" y2="136"/><line x1="210" y1="52" x2="292" y2="138"/>
+  </g>
+  <g font-family="JetBrains Mono, monospace" font-size="13" text-anchor="middle">
+    <g fill="var(--surface-2)" stroke="var(--border)">
+      <rect x="40" y="16" width="60" height="36" rx="6"/><rect x="180" y="16" width="60" height="36" rx="6" fill="var(--hl)"/><rect x="320" y="16" width="60" height="36" rx="6"/>
+      <rect x="100" y="140" width="60" height="36" rx="6" fill="var(--hl2)"/><rect x="180" y="140" width="60" height="36" rx="6" fill="var(--hl2)"/><rect x="260" y="140" width="60" height="36" rx="6" fill="var(--hl2)"/>
+    </g>
+    <g fill="var(--text)">
+      <text x="70" y="39">i, j−1</text><text x="210" y="39">i, j</text><text x="350" y="39">i, j+1</text>
+      <text x="130" y="163">i+1,j−1</text><text x="210" y="163">i+1, j</text><text x="290" y="163">i+1,j+1</text>
+    </g>
+    <text x="210" y="202" fill="var(--muted)" font-family="Be Vietnam Pro, sans-serif" font-size="12.5">Từ mỗi pixel chỉ được đi xuống 1 trong 3 ô ngay dưới</text>
+  </g>
+</svg>
+</div>
+<p>Bài toán "tìm seam dọc có năng lượng nhỏ nhất" trở thành: <b>tìm đường đi ngắn nhất</b> (chi phí nhỏ nhất) từ một đỉnh bất kỳ ở hàng trên cùng tới một đỉnh bất kỳ ở hàng dưới cùng.</p>
+<h3>5.3 Vì sao không dùng Dijkstra?</h3>
+<p>Dijkstra giải được nhưng tốn O(<i>V</i> log <i>V</i>) và dùng hàng đợi ưu tiên, một cấu trúc rất khó song song. Với DAG có cấu trúc lưới đẹp như thế này, có cách tốt hơn: xử lý các đỉnh theo <b>thứ tự topo</b> (từng hàng từ trên xuống) và dùng <b>quy hoạch động</b>, chỉ tốn O(<i>V</i>) = O(<i>H</i>·<i>W</i>). Đó là nội dung chương 6.</p>
+</section>
+
+<section id="c6">
+<h2 class="chap">Chương 6. Quy hoạch động (Dynamic Programming)</h2>
+<h3>6.1 Ý tưởng</h3>
+<div class="box def"><span class="lbl">Định nghĩa</span>
+<p><b>Quy hoạch động</b> giải bài toán lớn bằng cách chia thành các <b>bài toán con chồng lấp nhau</b>, giải mỗi bài toán con <b>đúng một lần</b>, lưu kết quả vào bảng, rồi dùng lại. Nó áp dụng được khi bài toán có <b>cấu trúc con tối ưu</b>: lời giải tối ưu của bài lớn được ghép từ lời giải tối ưu của các bài con.</p>
+</div>
+<h3>6.2 Ví dụ khởi động: Fibonacci</h3>
+<p>F(n) = F(n−1) + F(n−2). Đệ quy ngây thơ gọi lại F(n−2) rất nhiều lần và mất thời gian O(φ<sup>n</sup>), tăng theo hàm mũ. Nếu lưu bảng F[0..n] và tính từ nhỏ đến lớn thì chỉ mất O(n). Đó là toàn bộ tinh thần của DP: <b>đổi bộ nhớ lấy thời gian</b>.</p>
+<h3>6.3 Bốn bước thiết kế một lời giải DP</h3>
+<ol>
+  <li><b>Định nghĩa trạng thái:</b> ô bảng <i>M</i>[...] nghĩa là gì?</li>
+  <li><b>Công thức truy hồi:</b> tính <i>M</i> từ các ô đã biết thế nào?</li>
+  <li><b>Điều kiện cơ sở:</b> những ô nào biết ngay?</li>
+  <li><b>Thứ tự tính &amp; truy vết:</b> tính theo thứ tự nào để ô cần dùng luôn có sẵn? Làm sao khôi phục lời giải (không chỉ giá trị)?</li>
+</ol>
+<h3>6.4 Đường đi tổng nhỏ nhất trong lưới</h3>
+<p>Áp dụng cho đồ thị lưới chương 5:</p>
+<ol>
+  <li><b>Trạng thái:</b> <i>M</i>(<i>i</i>, <i>j</i>) = chi phí nhỏ nhất của một đường đi từ hàng 0 xuống tới <b>đúng</b> pixel (<i>i</i>, <i>j</i>), tính cả pixel đó.</li>
+  <li><b>Truy hồi:</b> muốn tới (<i>i</i>, <i>j</i>) thì bước trước phải ở một trong 3 ô phía trên. Chọn ô rẻ nhất:
+  <div class="eq"><i>M</i>(<i>i</i>, <i>j</i>) = <i>e</i>(<i>i</i>, <i>j</i>) + min{ <i>M</i>(<i>i</i>−1, <i>j</i>−1), <i>M</i>(<i>i</i>−1, <i>j</i>), <i>M</i>(<i>i</i>−1, <i>j</i>+1) }</div></li>
+  <li><b>Cơ sở:</b> <i>M</i>(0, <i>j</i>) = <i>e</i>(0, <i>j</i>). Ở biên trái/phải chỉ xét các ô tồn tại.</li>
+  <li><b>Thứ tự:</b> tính hết hàng 0, rồi hàng 1, rồi hàng 2... Đáp án là min của hàng cuối. Truy vết ngược từ hàng cuối lên.</li>
+</ol>
+<div class="box warn"><span class="lbl">Quan sát vàng cho môn song song</span>
+<p>Hàng <i>i</i> chỉ phụ thuộc vào hàng <i>i</i>−1. Các ô <b>trong cùng một hàng không phụ thuộc lẫn nhau</b>, nên có thể tính song song mọi ô của một hàng. Nhưng phải <b>đợi hàng trước tính xong</b> rồi mới tính hàng sau. Chỗ "đợi" đó là một <b>barrier</b> (rào đồng bộ). Toàn bộ chương 17 xoay quanh câu này.</p>
+</div>
+<p>Ví dụ tính tay chi tiết và demo từng bước nằm ở chương 10.</p>
+</section>
+
+<section id="c7">
+<h2 class="chap">Chương 7. Độ phức tạp thuật toán</h2>
+<p><b>Big-O</b> mô tả số phép tính tăng thế nào khi kích thước đầu vào tăng, bỏ qua hằng số. O(<i>N</i>) nghĩa là gấp đôi dữ liệu thì thời gian xấp xỉ gấp đôi.</p>
+<p>Gọi <i>N</i> = <i>H</i>·<i>W</i> là số pixel. Với <b>một</b> seam dọc:</p>
+<div class="tw"><table>
+<tr><th>Bước</th><th>Độ phức tạp</th><th>Lý do</th></tr>
+<tr><td>Tính năng lượng</td><td>O(<i>H</i>·<i>W</i>)</td><td>Hằng số phép tính cho mỗi pixel</td></tr>
+<tr><td>Tính bảng DP <i>M</i></td><td>O(<i>H</i>·<i>W</i>)</td><td>Mỗi ô: 1 phép min trên 3 số + 1 phép cộng</td></tr>
+<tr><td>Tìm min hàng cuối</td><td>O(<i>W</i>)</td><td></td></tr>
+<tr><td>Truy vết</td><td>O(<i>H</i>)</td><td>Mỗi hàng nhìn 3 ô</td></tr>
+<tr><td>Xóa seam</td><td>O(<i>H</i>·<i>W</i>)</td><td>Dịch trái các pixel bên phải seam (hoặc chép sang ảnh mới)</td></tr>
+</table></div>
+<p>Xóa <i>k</i> seam: tổng khoảng O(<i>k</i>·<i>H</i>·<i>W</i>). Ảnh 1920×1080 bỏ 500 cột: cỡ 500 × 2 triệu = 10<sup>9</sup> lượt xử lý pixel. Đủ nặng để song song hóa có ý nghĩa.</p>
+<div class="box ex"><span class="lbl">So sánh với vét cạn</span>
+<p>Một seam dọc chọn điểm xuất phát (<i>W</i> cách), sau đó mỗi hàng có tối đa 3 lựa chọn. Số seam có thể có lên tới cỡ <i>W</i>·3<sup><i>H</i>−1</sup>. Với <i>H</i> = 1000, 3<sup>999</sup> có khoảng 477 chữ số, nhiều hơn số nguyên tử trong vũ trụ (~10<sup>80</sup>). DP biến bài toán mũ thành bài toán tuyến tính theo số pixel.</p>
+</div>
+</section>
+
+<!-- ======================= PHẦN II ======================= -->
+<h2 class="part-title">Phần II · Ý tưởng Seam Carving</h2>
+
+<section id="c8">
+<h2 class="chap">Chương 8. Seam là gì?</h2>
+<div class="box def"><span class="lbl">Định nghĩa: Seam dọc (vertical seam)</span>
+<p>Một seam dọc của ảnh <i>H</i>×<i>W</i> là dãy pixel <i>s</i> = { (<i>i</i>, <i>x</i>(<i>i</i>)) : <i>i</i> = 0, …, <i>H</i>−1 }, <b>mỗi hàng đúng một pixel</b> ở cột <i>x</i>(<i>i</i>), thỏa điều kiện <b>liên thông 8 hướng</b>:</p>
+<div class="eq">| <i>x</i>(<i>i</i>) − <i>x</i>(<i>i</i>−1) | ≤ 1 &nbsp;&nbsp; với mọi <i>i</i> ≥ 1</div>
+<p>Nghĩa là từ hàng này xuống hàng kế, seam chỉ được lệch tối đa 1 cột.</p>
+</div>
+<p>Tương tự, <b>seam ngang</b> đi từ trái sang phải, mỗi cột đúng một pixel, mỗi bước lệch tối đa 1 hàng. Xóa seam dọc làm ảnh <b>hẹp</b> đi 1 cột. Xóa seam ngang làm ảnh <b>thấp</b> đi 1 hàng.</p>
+<h3>8.1 Tại sao lại là "mỗi hàng đúng một pixel"?</h3>
+<p>Để sau khi xóa, <b>mọi hàng vẫn có cùng số pixel</b> (<i>W</i>−1), nên ảnh vẫn là hình chữ nhật.</p>
+<h3>8.2 Tại sao phải liên thông?</h3>
+<p>Nếu cho phép mỗi hàng xóa một pixel bất kỳ (không liên thông), các hàng sẽ bị dịch lệch nhau lung tung và tạo ra vết răng cưa (zig-zag). Ràng buộc liên thông đảm bảo phần bên phải seam dịch sang trái <b>gần như đồng bộ</b> giữa các hàng kề nhau, nên cấu trúc ảnh được giữ. Paper minh họa chính hiện tượng này khi so sánh "xóa pixel tối ưu từng hàng" với "xóa seam" (chương 14).</p>
+<h3>8.3 Chi phí seam &amp; seam tối ưu</h3>
+<div class="eq"><i>E</i>(<i>s</i>) = Σ<sub><i>i</i>=0..<i>H</i>−1</sub> <i>e</i>( <i>i</i>, <i>x</i>(<i>i</i>) ) &nbsp;&nbsp;&nbsp;&nbsp; <i>s</i>* = argmin<sub><i>s</i></sub> <i>E</i>(<i>s</i>)</div>
+<p><i>s</i>* là seam "rẻ nhất": seam đi qua vùng ít quan trọng nhất. Xóa nó gây ít "tổn thương" thị giác nhất.</p>
+</section>
+
+<section id="c9">
+<h2 class="chap">Chương 9. Hàm năng lượng</h2>
+<p>Hàm năng lượng <i>e</i>(<i>i</i>, <i>j</i>) gán cho mỗi pixel một số không âm: càng lớn thì càng "quan trọng", càng không nên xóa. Hàm cơ bản nhất, và là hàm paper dùng trong phần lớn kết quả:</p>
+<div class="eq"><i>e</i><sub>1</sub>(<i>I</i>) = | ∂<i>I</i>/∂<i>x</i> | + | ∂<i>I</i>/∂<i>y</i> |</div>
+<p><b>Trực giác:</b> vùng phẳng (trời, tường, nước lặng) có <i>e</i><sub>1</sub> ≈ 0, xóa đi không ai nhận ra. Cạnh vật thể có <i>e</i><sub>1</sub> lớn, xóa đi sẽ làm vỡ hình.</p>
+<h3>9.1 Các hàm năng lượng khác trong paper</h3>
+<div class="tw"><table>
+<tr><th>Hàm</th><th>Ý tưởng</th></tr>
+<tr><td><i>e</i><sub>1</sub> (gradient L1)</td><td>Độ lớn gradient. Đơn giản, nhanh, cho kết quả tốt bất ngờ.</td></tr>
+<tr><td><i>e</i><sub>HoG</sub></td><td><i>e</i><sub>1</sub> chia cho giá trị lớn nhất của <b>histogram hướng gradient</b> (HoG, 8 bin, cửa sổ 11×11). Theo paper: mẫu số <b>hút seam về gần các cạnh</b>, còn tử số đảm bảo seam <b>chạy song song với cạnh, không cắt ngang</b> cạnh.</td></tr>
+<tr><td>Entropy</td><td>Entropy trên cửa sổ 9×9, <b>cộng vào</b> <i>e</i><sub>1</sub>.</td></tr>
+<tr><td>Segmentation + L1</td><td>Phân vùng ảnh trước rồi áp <i>e</i><sub>1</sub>; chỉ còn năng lượng ở biên giữa các vùng.</td></tr>
+<tr><td>Khác đã thử</td><td>Chuẩn L2 của gradient, saliency (Itti), Harris corners, đo ánh mắt (eye gaze), face detector.</td></tr>
+</table></div>
+<p>Kết luận của tác giả: không có hàm nào thắng tuyệt đối trên mọi ảnh, nhưng <i>e</i><sub>1</sub> và <i>e</i><sub>HoG</sub> nhìn chung làm tốt. Ngoài ra người dùng có thể "vẽ" thêm năng lượng bằng tay (chương 12).</p>
+<div class="box warn"><span class="lbl">Lời khuyên cho project</span>
+<p>Dùng <i>e</i><sub>1</sub> (sai phân hoặc Sobel). Đề tài của em là <b>song song hóa</b>, không phải chế hàm năng lượng mới. Một hàm đơn giản, xác định, dễ kiểm thử giúp so sánh tuần tự và song song chính xác từng pixel.</p>
+</div>
+</section>
+
+<section id="c10">
+<h2 class="chap">Chương 10. Tìm seam tối ưu bằng quy hoạch động</h2>
+<h3>10.1 Thuật toán</h3>
+<p>Định nghĩa <b>bảng năng lượng tích lũy</b> <i>M</i> (paper gọi là <i>cumulative minimum energy</i>):</p>
+<div class="eq"><i>M</i>(<i>i</i>, <i>j</i>) = <i>e</i>(<i>i</i>, <i>j</i>) + min{ <i>M</i>(<i>i</i>−1, <i>j</i>−1), <i>M</i>(<i>i</i>−1, <i>j</i>), <i>M</i>(<i>i</i>−1, <i>j</i>+1) }</div>
+<p>Sau khi tính xong, giá trị nhỏ nhất ở hàng cuối chính là chi phí của seam tối ưu. Seam được khôi phục bằng <b>truy vết</b> (backtracking): bắt đầu từ ô min ở hàng cuối, mỗi bước đi lên ô có <i>M</i> nhỏ nhất trong 3 ô phía trên.</p>
+<h3>10.2 Ví dụ tính tay</h3>
+<p>Ma trận năng lượng 4×5:</p>
+<div class="tw"><table class="grid" style="min-width:auto;width:auto">
+<tr><th>e</th><th>j=0</th><th>j=1</th><th>j=2</th><th>j=3</th><th>j=4</th></tr>
+<tr><th>i=0</th><td>3</td><td>1</td><td>4</td><td>1</td><td>5</td></tr>
+<tr><th>i=1</th><td>9</td><td>2</td><td>6</td><td>5</td><td>3</td></tr>
+<tr><th>i=2</th><td>5</td><td>8</td><td>9</td><td>7</td><td>9</td></tr>
+<tr><th>i=3</th><td>3</td><td>2</td><td>3</td><td>8</td><td>4</td></tr>
+</table></div>
+<p><b>Hàng 0:</b> <i>M</i> = e: [3, 1, 4, 1, 5].</p>
+<p><b>Hàng 1:</b><br>
+<i>M</i>(1,0) = 9 + min(3, 1) = 10 &nbsp; (biên trái: chỉ có 2 ô phía trên)<br>
+<i>M</i>(1,1) = 2 + min(3, 1, 4) = 3<br>
+<i>M</i>(1,2) = 6 + min(1, 4, 1) = 7<br>
+<i>M</i>(1,3) = 5 + min(4, 1, 5) = 6<br>
+<i>M</i>(1,4) = 3 + min(1, 5) = 4 &nbsp; (biên phải)</p>
+<p><b>Hàng 2:</b> [5+min(10,3), 8+min(10,3,7), 9+min(3,7,6), 7+min(7,6,4), 9+min(6,4)] = [8, 11, 12, 11, 13].</p>
+<p><b>Hàng 3:</b> [3+min(8,11), 2+min(8,11,12), 3+min(11,12,11), 8+min(12,11,13), 4+min(11,13)] = [11, 10, 14, 19, 15].</p>
+<p><b>Truy vết:</b> min hàng 3 là 10 tại <i>j</i> = 1. Lên hàng 2, xét cột 0, 1, 2: (8, 11, 12) → cột 0. Lên hàng 1, xét cột 0, 1: (10, 3) → cột 1. Lên hàng 0, xét cột 0, 1, 2: (3, 1, 4) → cột 1.</p>
+<p><b>Seam:</b> cột [1, 1, 0, 1] cho hàng 0..3. Kiểm tra: 1 + 2 + 5 + 2 = 10 ✓.</p>
+
+<div class="demo" id="dpdemo">
+<h4>Demo 1 · Chạy DP từng bước</h4>
+<p class="small">Mỗi ô hiển thị <i>M</i>(i,j) (to) và <i>e</i>(i,j) (nhỏ). Ô vàng: đang tính. Ô xanh: 3 ô cha được xét.</p>
+<div class="ctrl"><button class="primary" id="dpStep">Bước tiếp ▶</button><button id="dpAll">Chạy hết</button><button id="dpReset">Đặt lại</button></div>
+<div class="tw"><table class="grid dpgrid" id="dpTable" style="min-width:auto;width:auto"></table></div>
+<div class="status" id="dpStatus">Bấm “Bước tiếp” để bắt đầu.</div>
+</div>
+
+<h3>10.3 Mã giả C++ (tuần tự)</h3>
+<pre><code>// energy: H x W, row-major. M: H x W (float/double)
+for (int j = 0; j &lt; W; ++j) M[0*W + j] = energy[0*W + j];
+
+for (int i = 1; i &lt; H; ++i) {          // hàng phải tuần tự (phụ thuộc hàng i-1)
+    for (int j = 0; j &lt; W; ++j) {      // các ô trong hàng độc lập nhau
+        float best = M[(i-1)*W + j];
+        if (j &gt; 0)     best = std::min(best, M[(i-1)*W + j-1]);
+        if (j &lt; W - 1) best = std::min(best, M[(i-1)*W + j+1]);
+        M[i*W + j] = energy[i*W + j] + best;
+    }
+}
+
+// truy vết: thuần tuần tự, O(H)
+std::vector&lt;int&gt; seam(H);
+seam[H-1] = argmin(M + (H-1)*W, W);
+for (int i = H - 2; i &gt;= 0; --i) {
+    int j = seam[i+1], bestJ = j;
+    if (j &gt; 0     &amp;&amp; M[i*W + j-1] &lt; M[i*W + bestJ]) bestJ = j-1;
+    if (j &lt; W - 1 &amp;&amp; M[i*W + j+1] &lt; M[i*W + bestJ]) bestJ = j+1;
+    seam[i] = bestJ;
+}</code></pre>
+<div class="box warn"><span class="lbl">Tie-breaking: chuyện nhỏ nhưng quan trọng</span>
+<p>Khi hai ô có cùng giá trị <i>M</i>, chọn ô nào? Đoạn code trên ưu tiên ô <b>giữa</b>, rồi trái, rồi phải (dùng <code>&lt;</code> chặt). Bản tuần tự và song song <b>phải cùng quy tắc</b> thì seam mới giống hệt nhau. Ngoài ra, phép cộng số thực theo thứ tự khác nhau có thể cho kết quả khác ở bit cuối. Dùng năng lượng <b>số nguyên</b> (<code>int</code>) sẽ loại bỏ hẳn vấn đề này, rất đáng cân nhắc cho kiểm thử.</p>
+</div>
+<p>Có hai cách truy vết: (a) như trên, tính lại argmin từ <i>M</i>; (b) lưu thêm mảng <code>parent[i][j]</code> (hướng −1/0/+1) khi tính <i>M</i>. Cách (b) tốn thêm bộ nhớ nhưng truy vết không cần so sánh.</p>
+</section>
+
+<section id="c11">
+<h2 class="chap">Chương 11. Xóa seam &amp; vòng lặp chính</h2>
+<h3>11.1 Xóa một seam</h3>
+<p>Với mỗi hàng <i>i</i>: bỏ pixel ở cột <code>seam[i]</code>, dịch các pixel bên phải sang trái 1 ô. Ảnh mới có chiều rộng <i>W</i>−1.</p>
+<pre><code>for (int i = 0; i &lt; H; ++i) {          // các hàng độc lập → song song được
+    int s = seam[i];
+    for (int j = 0; j &lt; W - 1; ++j)
+        out[i*(W-1) + j] = in[i*W + (j &lt; s ? j : j + 1)];
+}</code></pre>
+<h3>11.2 Vòng lặp tổng thể</h3>
+<pre><code>while (W &gt; targetW) {
+    computeEnergy(img, energy);          // 1. năng lượng
+    computeCumulative(energy, M);        // 2. DP
+    findSeam(M, seam);                   // 3. truy vết
+    removeSeam(img, seam);               // 4. xóa → W--
+}</code></pre>
+<div class="box warn"><span class="lbl">Một điểm tinh tế: tham lam (greedy)</span>
+<p>Mỗi vòng lặp chọn seam tốt nhất <b>cho ảnh hiện tại</b> rồi xóa. Tập <i>k</i> seam thu được <b>không đảm bảo</b> là tập <i>k</i> seam có tổng năng lượng nhỏ nhất toàn cục. Đây là chiến lược tham lam mà paper chấp nhận vì nó đơn giản và cho kết quả tốt. Đồng thời, năng lượng phải được <b>tính lại sau mỗi lần xóa</b>, vì các pixel hai bên seam giờ đứng cạnh nhau, tạo gradient mới.</p>
+</div>
+
+<div class="demo" id="scdemo">
+<h4>Demo 2 · Seam Carving chạy ngay trên trình duyệt</h4>
+<p class="small">Ảnh mẫu được vẽ bằng code. Em có thể tải ảnh của mình lên; ảnh chỉ xử lý trong máy em, không gửi đi đâu. Đường đỏ là seam sẽ bị xóa tiếp theo. So sánh với ảnh bên dưới được <b>co giãn</b> (scaling) về cùng chiều rộng.</p>
+<div class="ctrl">
+  <button class="primary" id="scOne">Xóa 1 seam</button>
+  <button id="scTen">Xóa 20 seam</button>
+  <button id="scReset">Khôi phục</button>
+  <label><input type="checkbox" id="scShowSeam" checked> hiện seam</label>
+  <label><input type="checkbox" id="scShowEnergy"> xem bản đồ năng lượng</label>
+  <label><input type="checkbox" id="scForward"> forward energy (ch. 26)</label>
+</div>
+<div class="ctrl"><label for="scRange">Chiều rộng đích:</label><input type="range" id="scRange" min="50" max="100" value="100"><span id="scInfo" class="mono"></span></div>
+<div class="ctrl"><label>Ảnh của em: <input type="file" id="scFile" accept="image/*"></label></div>
+<div class="canv-row">
+  <figure><figcaption>Seam Carving</figcaption><canvas id="scMain"></canvas></figure>
+  <figure><figcaption>Scaling thông thường (để so sánh)</figcaption><canvas id="scScaled"></canvas></figure>
+</div>
+<p class="small">Hãy để ý: ngôi nhà, mặt trời và cái cây giữ nguyên hình dạng, còn bầu trời và bãi cỏ bị "rút" đi. Bên scaling thì mọi thứ bị bóp méo. Bật bản đồ năng lượng để thấy seam né các vùng sáng (năng lượng cao).</p>
+</div>
+</section>
+
+<section id="c12">
+<h2 class="chap">Chương 12. Phóng to, xóa vật thể, bảo vệ vùng</h2>
+<h3>12.1 Phóng to ảnh (chèn seam)</h3>
+<p>Ý tưởng ngây thơ: tìm seam tốt nhất, nhân đôi nó, lặp lại. Sai! Seam vừa chèn có năng lượng thấp nên lần sau lại bị chọn, và kết quả là kéo giãn đúng một chỗ. Cách của paper:</p>
+<ol>
+  <li>Muốn rộng thêm <i>k</i> cột: <b>giả vờ xóa</b> <i>k</i> seam trên bản sao ảnh và ghi nhớ vị trí của chúng trong ảnh gốc.</li>
+  <li>Chèn vào ảnh gốc <i>k</i> seam mới ngay cạnh các vị trí đó. Giá trị pixel mới bằng <b>trung bình</b> của hàng xóm trái và phải.</li>
+</ol>
+<p>Nếu phóng quá lớn (paper gợi ý cỡ hơn 50%), nên chia thành nhiều bước nhỏ để không chèn mãi vào cùng một vùng.</p>
+<h3>12.2 Xóa vật thể (object removal)</h3>
+<p>Người dùng tô vùng vật thể muốn xóa. Paper xóa seam <b>cho đến khi không còn pixel đánh dấu nào</b>, rồi có thể chèn seam để trả ảnh về kích thước cũ. Hướng (dọc/ngang) được chọn theo đường kính nhỏ hơn của vùng để xóa ít seam nhất. Paper không ghi công thức "ép" seam đi qua vật thể. Cách cài đặt phổ biến là gán năng lượng <b>rất âm</b> cho các pixel đó, nên seam bị "hút" qua vật thể.</p>
+<h3>12.3 Bảo vệ vùng (protection)</h3>
+<p>Ngược lại: gán năng lượng <b>rất lớn</b> cho vùng cần giữ (ví dụ khuôn mặt), seam sẽ né vùng đó.</p>
+<h3>12.4 Thu nhỏ cả hai chiều</h3>
+<p>Muốn bỏ <i>r</i> hàng và <i>c</i> cột thì xóa seam ngang trước hay dọc trước? Thứ tự ảnh hưởng kết quả. Paper đưa ra một DP thứ hai trên "bản đồ vận chuyển" (transport map) để chọn thứ tự tối ưu; xem chương 14.</p>
+<div class="box q"><span class="lbl">Tự kiểm tra 12</span>
+<p>Vì sao xóa vật thể dùng năng lượng âm mà không chỉ đặt bằng 0?</p>
+<details><summary>Đáp án</summary><p>Vùng trời phẳng cũng có năng lượng ≈ 0, nên seam có thể đi qua trời thay vì qua vật thể. Năng lượng âm lớn đảm bảo seam đi qua vật thể luôn rẻ hơn mọi seam khác.</p></details>
+</div>
+</section>
+
+<!-- ======================= PHẦN III ======================= -->
+<h2 class="part-title">Phần III · Phân tích paper</h2>
+
+<section id="c13">
+<h2 class="chap">Chương 13. Tổng quan paper</h2>
+<div class="tw"><table>
+<tr><th>Tiêu đề</th><td><i>Seam Carving for Content-Aware Image Resizing</i></td></tr>
+<tr><th>Tác giả</th><td>Shai Avidan (Mitsubishi Electric Research Labs), Ariel Shamir (The Interdisciplinary Center &amp; MERL)</td></tr>
+<tr><th>Nơi công bố</th><td>ACM SIGGRAPH 2007, đăng trong ACM Transactions on Graphics, Vol. 26, No. 3</td></tr>
+<tr><th>File</th><td>Bản PDF có trong máy em (<code>seamcarving_original_paper.pdf</code>); link nguồn trong <code>link.md</code></td></tr>
+</table></div>
+<h3>13.1 Bối cảnh</h3>
+<p>Năm 2007, màn hình đa dạng bùng nổ (điện thoại, PDA, màn hình rộng). Các kỹ thuật retargeting trước đó chủ yếu dựa vào <b>crop thông minh</b> quanh vùng nổi bật, hoặc biến dạng ảnh bằng lưới (warping), thường phức tạp hoặc vẫn mất nội dung. Paper đề xuất một toán tử đơn giản, nhanh, tổng quát, và trở thành một trong những paper đồ họa được nhắc đến nhiều nhất thời đó. (Thông tin ngoài paper: Adobe Photoshop sau này có tính năng <i>Content-Aware Scale</i> dựa trên ý tưởng tương tự.)</p>
+<h3>13.2 Đóng góp chính</h3>
+<p>Paper tự liệt kê 4 đóng góp:</p>
+<ol>
+  <li><b>Định nghĩa seam carving</b> và các tính chất: seam là đường liên thông 8 hướng, mỗi hàng/cột một pixel, tìm bằng DP.</li>
+  <li><b>Thuật toán phóng to ảnh</b> bằng chèn seam.</li>
+  <li><b>Dùng seam cho các thao tác kích thước theo nội dung</b>: đổi tỉ lệ, retargeting hai chiều với thứ tự tối ưu, khuếch đại nội dung, xóa/bảo vệ vật thể.</li>
+  <li><b>Multi-size images</b>: lưu thứ tự seam để đổi kích thước liên tục theo thời gian thực.</li>
+</ol>
+<h3>13.3 Bảng ký hiệu: paper ↔ giáo trình</h3>
+<div class="tw"><table>
+<tr><th>Paper</th><th>Giáo trình</th><th>Nghĩa</th></tr>
+<tr><td><i>I</i>, kích thước <i>n</i>×<i>m</i></td><td><i>H</i>×<i>W</i></td><td><i>n</i> hàng, <i>m</i> cột</td></tr>
+<tr><td><i>s</i><sup>x</sup> = {(<i>x</i>(<i>i</i>), <i>i</i>)}<sub><i>i</i>=1..n</sub></td><td>seam dọc, cột <i>x</i>(<i>i</i>) tại hàng <i>i</i></td><td>Paper viết cặp (cột, hàng)</td></tr>
+<tr><td><i>s</i><sup>y</sup> = {(<i>j</i>, <i>y</i>(<i>j</i>))}<sub><i>j</i>=1..m</sub></td><td>seam ngang</td><td></td></tr>
+<tr><td><i>E</i>(<i>s</i>), <i>M</i>(<i>i</i>, <i>j</i>)</td><td>như nhau</td><td>chi phí seam, năng lượng tích lũy</td></tr>
+<tr><td>chỉ số từ 1</td><td>chỉ số từ 0</td><td>Cẩn thận khi chuyển công thức sang code!</td></tr>
+</table></div>
+</section>
+
+<section id="c14">
+<h2 class="chap">Chương 14. Đọc kỹ từng phần của paper</h2>
+<p class="small">Mở PDF song song với chương này. Các mục dưới đây đi <b>đúng thứ tự và đánh số mục của paper</b> (Section 1 → 7 và Appendix A). Paper đánh chỉ số từ 1; khi chép công thức sang C++ nhớ trừ 1.</p>
+
+<h3>14.0 Bản đồ các Figure</h3>
+<p>Paper có 17 hình, phần lớn lập luận nằm trong hình. Bảng này giúp em biết mỗi hình chứng minh điều gì:</p>
+<div class="tw"><table>
+<tr><th>Fig.</th><th>Nội dung</th><th>Thông điệp</th></tr>
+<tr><td>1</td><td>Ảnh gốc với 1 seam ngang + 1 seam dọc; bản đồ năng lượng; hai "path map" (bảng <i>M</i>); kết quả mở rộng một chiều, thu một chiều so với scaling</td><td>Tổng quan toán tử</td></tr>
+<tr><td>2</td><td>5 chiến lược thu hẹp: crop, xóa cột, xóa seam, xóa pixel từng hàng, xóa pixel toàn cục</td><td>Vì sao chọn seam</td></tr>
+<tr><td>3</td><td>Đồ thị năng lượng trung bình của 5 chiến lược khi thu hẹp</td><td>Đánh giá định lượng duy nhất của paper</td></tr>
+<tr><td>4</td><td>So sánh hàm năng lượng: <i>e</i><sub>1</sub>, entropy, <i>e</i><sub>HoG</sub>, segmentation + L1</td><td>Không hàm nào thắng tuyệt đối</td></tr>
+<tr><td>5</td><td>Đổi tỉ lệ: seam vs scaling vs cropping</td><td>Ưu thế của seam carving</td></tr>
+<tr><td>6</td><td>Tranh Hiroshige được làm rộng bằng chèn seam</td><td>Phóng to</td></tr>
+<tr><td>7</td><td>Transport map <i>T</i> và đường tối ưu; so với xen kẽ, dọc trước, ngang trước</td><td>Thứ tự seam tối ưu</td></tr>
+<tr><td>8</td><td>Chèn seam: (b) chèn lặp cùng seam, (c–d) chèn theo thứ tự xóa, (e) scaling, (f) 2 bước 50%, (g) cận cảnh</td><td>Cách phóng to đúng</td></tr>
+<tr><td>9</td><td>Content amplification</td><td>Scale lên rồi carve xuống</td></tr>
+<tr><td>10</td><td>Seam carving trong miền gradient + Poisson</td><td>Giảm artifact</td></tr>
+<tr><td>11</td><td>Xóa vật thể: vùng xóa (xanh lá), vùng bảo vệ (đỏ)</td><td>Giao diện người dùng</td></tr>
+<tr><td>12</td><td>"Tìm chiếc giày bị mất": xóa 1 chiếc giày rồi phóng lại kích thước cũ</td><td>Xóa + chèn</td></tr>
+<tr><td>13</td><td>Index map <i>V</i> và <i>H</i> tô màu theo thứ tự seam</td><td>Multi-size images</td></tr>
+<tr><td>14</td><td><i>e</i><sub>1</sub> thất bại vs có face detector</td><td>Hạn chế + cách khắc phục</td></tr>
+<tr><td>15</td><td>Tượng Phật: crop, scale, tự động, thêm ràng buộc người dùng</td><td>Ràng buộc người dùng</td></tr>
+<tr><td>16</td><td>Trường hợp thất bại: ảnh quá dày nội dung, bố cục chặn seam</td><td>Giới hạn</td></tr>
+<tr><td>17</td><td>Index map ngang + dọc <b>nhất quán</b></td><td>Appendix A</td></tr>
+</table></div>
+
+<h3>14.1 Abstract &amp; Section 1 – Introduction</h3>
+<p>Định nghĩa trong abstract: <i>"A seam is an optimal 8-connected path of pixels on a single image from top to bottom, or left to right, where optimality is defined by an image energy function."</i></p>
+<p>Lập luận mở đầu: thiết bị hiển thị đa dạng (điện thoại, PDA, trang web có layout động, in theo khổ giấy), nhưng ảnh thì "cứng" kích thước. Scaling "mù nội dung" và chỉ co đều; cropping chỉ bỏ được pixel ở <b>rìa</b>. Muốn resize hiệu quả phải xét <b>nội dung</b>, không chỉ ràng buộc hình học.</p>
+<p>Hai ý quan trọng hay bị bỏ qua:</p>
+<ul>
+  <li>Khi <b>thu nhỏ</b>, việc chọn seam đảm bảo xóa nhiều pixel năng lượng thấp và ít pixel năng lượng cao. Khi <b>phóng to</b>, <i>thứ tự</i> chèn seam cân bằng giữa nội dung gốc và pixel nhân tạo.</li>
+  <li>Quá trình xóa/chèn <b>không có tham số</b> (parameter free). Để người dùng điều khiển, paper cung cấp giao diện <b>vẽ nét (scribble)</b> để cộng thêm trọng số vào bản đồ năng lượng.</li>
+</ul>
+<p><b>4 đóng góp</b> paper tự liệt kê: (1) định nghĩa seam carving và các tính chất; (2) thuật toán phóng to bằng chèn seam; (3) dùng seam cho các thao tác kích thước theo nội dung; (4) định nghĩa multi-size images cho retargeting liên tục.</p>
+
+<h3>14.2 Section 2 – Background (các công trình liên quan)</h3>
+<div class="tw"><table>
+<tr><th>Nhóm</th><th>Công trình</th><th>Ý chính / khác biệt với seam carving</th></tr>
+<tr><td>Phát hiện vùng quan trọng</td><td>Top-down: face detector (Viola &amp; Jones 2001). Bottom-up: saliency map (Itti et al. 1999)</td><td>Tìm vùng quan trọng rồi <b>vẫn dùng crop/scale</b> để đổi kích thước</td></tr>
+<tr><td>Crop / thumbnail thông minh</td><td>Suh et al. 2003 (thumbnail), Chen et al. 2003 (ảnh cho thiết bị di động), Liu et al. 2003 (duyệt ROI theo thời gian), Santella et al. 2006 (eye tracking + luật bố cục)</td><td>Kết quả ấn tượng nhưng dựa trên crop truyền thống</td></tr>
+<tr><td>Layout tài liệu</td><td>Jacobs et al. 2003</td><td>Chọn template phù hợp; không resize ảnh</td></tr>
+<tr><td>Scaling phi tuyến</td><td>Liu &amp; Gleicher 2005, 2006 (Fisheye-View warp; video: crop + pan ảo + cắt cảnh)</td><td>Giữ ROI, làm cong phần còn lại</td></tr>
+<tr><td>Tách lớp</td><td>Setlur et al. 2005</td><td>Phân vùng, lấy vật quan trọng ra, lấp lỗ, resize nền, dán lại</td></tr>
+<tr><td>Warping toàn cục</td><td>Gal et al. 2006 (feature-aware, Laplacian editing)</td><td>Tối ưu toàn cục nên không phải ràng buộc nào cũng thỏa được. Seam carving <b>rời rạc</b>: xóa 1 seam không ảnh hưởng phần còn lại của ảnh</td></tr>
+<tr><td>Seam trong chỉnh sửa ảnh</td><td>Agarwala 2004 (Photomontage), Jia 2006 (Drag-and-Drop Pasting), Rother 2006 (AutoCollage), Wang &amp; Cohen 2006, Zomet 2005 (khâu ảnh, chuẩn L1 trên gradient)</td><td>Dùng seam làm <b>đường ghép</b>, không giải bài toán retargeting</td></tr>
+<tr><td>Tổng hợp texture</td><td>Efros &amp; Freeman 2001 (image quilting), Kwatra 2003 (graph-cut textures)</td><td>Dùng seam để mở rộng texture</td></tr>
+<tr><td>Xóa vật thể</td><td>Bertalmio 2000 (inpainting), Drori 2003, Criminisi 2003, Bertalmio 2003, Sun 2005</td><td>Lấp lỗ; giữ nguyên kích thước và phần còn lại của ảnh</td></tr>
+</table></div>
+<p>Paper cũng nêu: tìm seam có thể làm bằng <b>Dijkstra</b>, <b>quy hoạch động</b> hoặc <b>graph cut</b>. Paper chọn DP (Section 3), đúng như phân tích ở chương 5.</p>
+
+<h3>14.3 Section 3 – The Operator</h3>
+<p><b>Năng lượng</b> (phương trình 1): <i>e</i><sub>1</sub>(<i>I</i>) = |∂<i>I</i>/∂<i>x</i>| + |∂<i>I</i>/∂<i>y</i>|. Đây là hàm dùng trong phần lớn hình của paper (Fig. 1, 5, 6, 8, 11, 12, 13).</p>
+<p><b>Năm chiến lược thu hẹp</b> (Fig. 2), dẫn dắt từng bước tới seam:</p>
+<div class="tw"><table>
+<tr><th>Chiến lược</th><th>Ưu</th><th>Nhược</th></tr>
+<tr><td>(f) Xóa pixel năng lượng thấp nhất <b>toàn cục</b>, theo thứ tự tăng dần</td><td>Tối ưu về giữ năng lượng</td><td>Mỗi hàng mất số pixel khác nhau → ảnh <b>không còn hình chữ nhật</b></td></tr>
+<tr><td>(e) Xóa pixel thấp nhất <b>mỗi hàng</b></td><td>Giữ hình chữ nhật</td><td>Hiệu ứng <b>zigzag</b>, phá nội dung</td></tr>
+<tr><td>(b) Auto-crop: cửa sổ con có tổng năng lượng cao nhất</td><td>Giữ hình dạng và mạch lạc thị giác</td><td>Mất toàn bộ phần rìa</td></tr>
+<tr><td>(c) Xóa <b>cột</b> năng lượng thấp nhất</td><td>Nằm giữa xóa pixel và crop</td><td>Vẫn có artifact</td></tr>
+<tr><td>(d) <b>Xóa seam</b></td><td>Ít ràng buộc hơn crop/cột, mạch lạc hơn xóa pixel</td><td>Lựa chọn của paper</td></tr>
+</table></div>
+<p><b>Định nghĩa hình thức</b> (phương trình 2–3): ảnh <i>I</i> kích thước <i>n</i>×<i>m</i>. Seam dọc <i>s</i><sup>x</sup> = {(<i>x</i>(<i>i</i>), <i>i</i>)}<sub><i>i</i>=1..n</sub> với <i>x</i>: [1..n] → [1..m] và |<i>x</i>(<i>i</i>) − <i>x</i>(<i>i</i>−1)| ≤ 1. Seam ngang <i>s</i><sup>y</sup> = {(<i>j</i>, <i>y</i>(<i>j</i>))}<sub><i>j</i>=1..m</sub> tương tự. Pixel của seam: <i>I</i><sub>s</sub> = {<i>I</i>(<i>s</i><sub><i>i</i></sub>)}.</p>
+<ul>
+  <li><b>Tác động cục bộ:</b> giống xóa một hàng/cột, xóa seam chỉ làm các pixel dịch trái (hoặc lên) để lấp chỗ trống. Ảnh hưởng thị giác chỉ nằm dọc đường seam.</li>
+  <li><b>Tổng quát hóa:</b> thay ràng buộc ≤ 1 bằng ≤ <i>k</i>. Với <i>k</i> = 0 ta được đúng <b>một cột thẳng</b>; với 1 &lt; <i>k</i> ≤ <i>m</i> ta được tập pixel liên thông từng đoạn, thậm chí rời rạc hoàn toàn (tức chiến lược (e)). Vậy "cột" và "pixel từng hàng" là hai cực của cùng một họ, và seam (<i>k</i> = 1) nằm ở giữa.</li>
+</ul>
+<p><b>Chi phí và seam tối ưu</b> (phương trình 4): <i>E</i>(<i>s</i>) = Σ<sub><i>i</i>=1..n</sub> <i>e</i>(<i>I</i>(<i>s</i><sub><i>i</i></sub>)), <i>s</i>* = min<sub><i>s</i></sub> <i>E</i>(<i>s</i>). <b>Tìm bằng DP</b>: duyệt từ hàng thứ hai tới hàng cuối, tính <i>M</i>(<i>i</i>, <i>j</i>) = <i>e</i>(<i>i</i>, <i>j</i>) + min(<i>M</i>(<i>i</i>−1, <i>j</i>−1), <i>M</i>(<i>i</i>−1, <i>j</i>), <i>M</i>(<i>i</i>−1, <i>j</i>+1)); min hàng cuối là điểm kết thúc của seam; truy vết ngược để lấy đường. Seam ngang làm tương tự. Đây đúng là chương 10.</p>
+
+<h3>14.4 Section 3.1 – Energy Preservation Measure</h3>
+<p>Để so sánh các chiến lược một cách <b>định lượng</b>, paper đo <b>năng lượng trung bình</b> của ảnh trong khi thu nhỏ:</p>
+<div class="eq">ē = (1 / |<i>I</i>|) · Σ<sub><i>p</i> ∈ <i>I</i></sub> <i>e</i>(<i>p</i>)</div>
+<p>Xóa pixel <b>ngẫu nhiên</b> thì ē giữ nguyên. Resize theo nội dung phải làm ē <b>tăng</b>, vì nó bỏ pixel năng lượng thấp và giữ pixel năng lượng cao. Kết quả Fig. 3:</p>
+<ol>
+  <li>Xóa toàn cục tăng dần (f): tốt nhất (đúng như kỳ vọng), theo sát là xóa pixel từng hàng (e). Nhưng <b>cả hai đều phá mạch lạc thị giác</b>.</li>
+  <li>Cropping: giữ năng lượng <b>kém nhất</b>.</li>
+  <li>Xóa cột: giữ năng lượng tốt hơn crop nhưng vẫn có artifact.</li>
+  <li><b>Seam carving</b>: cân bằng tốt nhất giữa giữ năng lượng và mạch lạc thị giác.</li>
+</ol>
+<div class="box warn"><span class="lbl">Đọc phê bình</span>
+<p>Đây là thước đo định lượng duy nhất trong paper, và tác giả chỉ nói kết quả "đặc trưng cho nhiều ảnh" dựa trên một ví dụ (Fig. 2–3). Không có user study hay benchmark trên tập ảnh lớn. Trong project, em có thể dùng ē làm một <b>kiểm tra phụ</b>: bản tuần tự và song song phải cho cùng một đường cong ē.</p>
+</div>
+
+<h3>14.5 Section 3.2 – Image Energy Functions</h3>
+<p>Các thước đo tác giả <b>đã thử</b>: chuẩn L1 và L2 của gradient, saliency (Itti et al. 1999), Harris corners (Harris &amp; Stephens 1988), đo ánh mắt (eye gaze, DeCarlo &amp; Santella 2002), output của face detector. Fig. 4 so sánh 4 hàm:</p>
+<div class="tw"><table>
+<tr><th>Hàm</th><th>Định nghĩa trong paper</th></tr>
+<tr><td><i>e</i><sub>1</sub></td><td>|∂<i>I</i>/∂<i>x</i>| + |∂<i>I</i>/∂<i>y</i>|</td></tr>
+<tr><td><i>e</i><sub>Entropy</sub></td><td>Entropy tính trên cửa sổ <b>9×9</b>, <b>cộng vào</b> <i>e</i><sub>1</sub></td></tr>
+<tr><td>Segmentation + L1</td><td>Phân vùng ảnh trước (Christoudias et al. 2002), rồi áp <i>e</i><sub>1</sub> lên ảnh đã phân vùng. Thực chất chỉ còn năng lượng ở <b>biên giữa các vùng</b></td></tr>
+<tr><td><i>e</i><sub>HoG</sub></td><td>( |∂<i>I</i>/∂<i>x</i>| + |∂<i>I</i>/∂<i>y</i>| ) / max(HoG(<i>I</i>(<i>x</i>, <i>y</i>))), với HoG là histogram hướng gradient (Dalal &amp; Triggs 2005), <b>8 bin</b>, cửa sổ <b>11×11</b> quanh pixel</td></tr>
+</table></div>
+<p><b>Trực giác của <i>e</i><sub>HoG</sub></b>, theo đúng lời paper: lấy max của HoG ở <b>mẫu số</b> thì <b>hút seam về phía các cạnh</b> trong ảnh, còn <b>tử số</b> đảm bảo seam sẽ <b>chạy song song với cạnh và không cắt ngang qua nó</b>. (Ở vùng có cạnh mạnh, một hướng gradient chiếm ưu thế nên max HoG lớn, làm năng lượng bị chia nhỏ. Nhưng đi cắt ngang cạnh vẫn tốn vì tử số lớn.) <i>e</i><sub>HoG</sub> được dùng ở Fig. 9 và 10.</p>
+<p><b>Kết luận của paper:</b> không hàm nào tốt trên mọi ảnh, nhưng nhìn chung chúng cho <b>khoảng resize tương tự</b>; khác nhau ở <b>tốc độ</b> xuất hiện artifact và <b>vùng</b> bị ảnh hưởng. <i>e</i><sub>1</sub> hoặc <i>e</i><sub>HoG</sub> làm khá tốt.</p>
+
+<h3>14.6 Section 4.1 – Aspect Ratio Change</h3>
+<p>Từ <i>n</i>×<i>m</i> sang <i>n</i>×<i>m</i>′ với <i>m</i> − <i>m</i>′ = <i>c</i>: xóa liên tiếp <i>c</i> seam dọc. Khác với scaling, phép này không làm biến dạng phần quan trọng và tạo ra resize <b>không đều, theo nội dung</b> (Fig. 5).</p>
+<p>Ý thường bị quên: cùng tỉ lệ đó có thể đạt bằng cách <b>tăng số hàng</b> theo hệ số <i>m</i>/<i>m</i>′ (chèn seam ngang, Fig. 6). Lợi ích: <b>không xóa thông tin nào</b> khỏi ảnh.</p>
+
+<h3>14.7 Section 4.2 – Retargeting with Optimal Seams-Order</h3>
+<p>Thu cả hai chiều từ <i>n</i>×<i>m</i> về <i>n</i>′×<i>m</i>′ (giả sử <i>n</i>′ &lt; <i>n</i>, <i>m</i>′ &lt; <i>m</i>). Câu hỏi: dọc trước, ngang trước, hay xen kẽ? Paper đặt bài toán tối ưu (phương trình 5):</p>
+<div class="eq">min<sub><i>s</i><sup>x</sup>, <i>s</i><sup>y</sup>, α</sub> Σ<sub><i>i</i>=1..<i>k</i></sub> <i>E</i>( α<sub><i>i</i></sub> <i>s</i><sub><i>i</i></sub><sup>x</sup> + (1 − α<sub><i>i</i></sub>) <i>s</i><sub><i>i</i></sub><sup>y</sup> ), &nbsp; α<sub><i>i</i></sub> ∈ {0, 1}, &nbsp; Σα<sub><i>i</i></sub> = <i>r</i>, &nbsp; Σ(1−α<sub><i>i</i></sub>) = <i>c</i>, &nbsp; <i>k</i> = <i>r</i> + <i>c</i></div>
+<p>α<sub><i>i</i></sub> cho biết bước thứ <i>i</i> xóa seam dọc (α = 1) hay ngang (α = 0). Giải bằng DP trên <b>transport map</b> <i>T</i>: <i>T</i>(<i>r</i>, <i>c</i>) = chi phí nhỏ nhất để thu được ảnh kích thước (<i>n</i> − <i>r</i>) × (<i>m</i> − <i>c</i>). Bắt đầu <i>T</i>(0, 0) = 0, mỗi ô chọn cái tốt hơn trong hai cách tới nó (phương trình 6):</p>
+<div class="eq"><i>T</i>(<i>r</i>, <i>c</i>) = min( <i>T</i>(<i>r</i>−1, <i>c</i>) + <i>E</i>(seam <b>ngang</b> tối ưu của ảnh (<i>n</i>−<i>r</i>+1)×(<i>m</i>−<i>c</i>)), &nbsp; <i>T</i>(<i>r</i>, <i>c</i>−1) + <i>E</i>(seam <b>dọc</b> tối ưu của ảnh (<i>n</i>−<i>r</i>)×(<i>m</i>−<i>c</i>+1)) )</div>
+<p>Lưu một bản đồ <b>1 bit</b> ghi lựa chọn ở mỗi ô: chọn hàng xóm <b>trái</b> (<i>c</i>−1) nghĩa là xóa seam dọc; chọn hàng xóm <b>trên</b> (<i>r</i>−1) nghĩa là xóa seam ngang. Có kích thước đích thì truy vết từ <i>T</i>(<i>r</i>, <i>c</i>) về <i>T</i>(0, 0) rồi thực hiện các phép xóa tương ứng. Fig. 7 so sánh với xen kẽ, dọc trước và ngang trước.</p>
+<div class="box warn"><span class="lbl">Đọc phê bình: ký hiệu không nhất quán</span>
+<p>Paper viết <i>r</i> = (<i>m</i> − <i>m</i>′), <i>c</i> = (<i>n</i> − <i>n</i>′) ở (5), nhưng định nghĩa <i>T</i>(<i>r</i>, <i>c</i>) là ảnh (<i>n</i> − <i>r</i>) × (<i>m</i> − <i>c</i>), tức <i>r</i> là số <b>hàng</b>. Phương trình (6) trong bản gốc cũng ghép <i>T</i>(<i>r</i>−1, <i>c</i>) với <i>s</i><sup>x</sup> (seam dọc) và chỉ số ảnh lệch 1. Công thức ở trên là cách đọc <b>nhất quán</b> với câu "trái = dọc, trên = ngang" của chính paper. Bài học: đọc paper phải tự kiểm tra lại chiều và chỉ số, đừng chép máy móc.</p>
+</div>
+<p><b>Chi phí:</b> mỗi ô của <i>T</i> cần một lần tìm seam trên một ảnh trung gian khác nhau, tức (<i>r</i>+1)(<i>c</i>+1) lần DP, và phải giữ các ảnh trung gian. Đây là mở rộng thú vị cho song song: các ô trên cùng đường chéo <i>r</i> + <i>c</i> = const không phụ thuộc nhau (kiểu <b>wavefront</b>).</p>
+
+<h3>14.8 Section 4.3 – Image Enlarging</h3>
+<p>Paper nhìn chuỗi xóa seam như một <b>quá trình tiến hóa theo thời gian</b>: <i>I</i><sup>(t)</sup> là ảnh sau khi xóa <i>t</i> seam. Phóng to là "đảo ngược thời gian": <i>I</i><sup>(−1)</sup>, <i>I</i><sup>(−k)</sup>.</p>
+<ol>
+  <li>Phóng to 1: tìm seam tối ưu <i>s</i> trên <i>I</i>, nhân đôi pixel của <i>s</i> bằng cách <b>lấy trung bình với hàng xóm trái và phải</b> (trên/dưới với seam ngang).</li>
+  <li>Lặp lại cách đó → gần như chắc chắn chọn <b>cùng một seam</b> → artifact kéo giãn (Fig. 8b).</li>
+  <li>Cách đúng: phóng to <i>k</i> thì tìm <b><i>k</i> seam đầu tiên sẽ bị xóa</b>, rồi nhân đôi chúng để được <i>I</i><sup>(−k)</sup> (Fig. 8c–d). Paper nói thẳng: cách này giống "quay ngược thời gian" để khôi phục pixel lẽ ra đã bị xóa từ một ảnh lớn hơn, <b>nhưng không đảm bảo</b> đúng như vậy.</li>
+  <li>Nhân đôi <b>tất cả</b> seam của ảnh thì tương đương <b>scaling thường</b> (Fig. 8e).</li>
+  <li>Phóng to quá nhiều (ví dụ &gt; 50%): chia thành nhiều bước, mỗi bước không phóng quá một phần kích thước của bước trước (Fig. 8f: 2 bước 50%). Dù vậy, phóng cực lớn vẫn sẽ có artifact.</li>
+</ol>
+
+<h3>14.9 Section 4.4 – Content Amplification</h3>
+<p>Giữ nguyên kích thước nhưng <b>khuếch đại nội dung</b>: scale ảnh lên trước, rồi seam-carve về kích thước gốc (Fig. 9). Vì làm trên ảnh đã phóng to, các pixel bị xóa thực chất là <b>sub-pixel</b> của ảnh gốc.</p>
+
+<h3>14.10 Section 4.5 – Seam Carving in the Gradient Domain</h3>
+<p>Khi xóa nhiều seam vẫn còn artifact: tính năng lượng như cũ, nhưng thay vì xóa seam khỏi ảnh gốc thì xóa khỏi <b>ảnh đạo hàm x và y</b>, cuối cùng dùng <b>Poisson solver</b> (Pérez et al. 2003) dựng lại ảnh (Fig. 10). Poisson reconstruction là tìm ảnh có gradient gần nhất với trường gradient cho trước, tức giải một hệ phương trình tuyến tính lớn. Đây là kiến thức nâng cao, ngoài phạm vi project.</p>
+
+<h3>14.11 Section 4.6 – Object Removal</h3>
+<p>Người dùng đánh dấu vật cần xóa (Fig. 11, màu xanh lá), có thể kèm vùng cần bảo vệ (màu đỏ). Hệ thống <b>xóa seam cho đến khi không còn pixel đánh dấu nào</b>. Hệ thống tự tính đường kính dọc và ngang (theo pixel) của vùng cần xóa, và chọn hướng có đường kính <b>nhỏ hơn</b>. Muốn lấy lại kích thước cũ thì chèn seam (Fig. 12).</p>
+<p>Khác biệt với inpainting (Drori, Criminisi, Bertalmio 2003): seam carving <b>thay đổi toàn bộ ảnh</b> (kích thước, hoặc nội dung nếu phóng lại), vì seam xóa và seam chèn có thể đi qua bất kỳ đâu.</p>
+<p class="small">Paper không ghi công thức cụ thể cho việc "ép" seam đi qua vùng đánh dấu. Cách phổ biến khi cài đặt là gán năng lượng rất âm cho vùng xóa và rất lớn cho vùng bảo vệ (chương 12), phù hợp với ý "scribble cộng trọng số vào năng lượng" ở Section 1.</p>
+
+<h3>14.12 Section 5 – Multi-size Images</h3>
+<p><b>Động cơ:</b> thường không biết trước kích thước đích, ví dụ ảnh trong trang web hiển thị ở độ phân giải bất kỳ, hoặc người dùng muốn thử nhiều kích thước. Seam carving tuyến tính theo số pixel, và resize tuyến tính theo số seam. Số đo <b>paper tự báo cáo</b>: trung bình resize ảnh 400×500 về 100×100 mất khoảng <b>2.2 giây</b> (phần cứng năm 2007, paper không nêu cấu hình). Tính hàng chục, hàng trăm seam theo thời gian thực vẫn là thách thức, và đây chính là động lực cho tăng tốc (và cho project của em).</p>
+<p><b>Index map dọc <i>V</i></b> (kích thước <i>n</i>×<i>m</i>): <i>V</i>(<i>i</i>, <i>j</i>) = <i>t</i> nghĩa là pixel (<i>i</i>, <i>j</i>) bị xóa bởi seam thứ <i>t</i>. Đây là cách <b>lưu tường minh</b> quá trình tiến hóa theo thời gian. Muốn ảnh rộng <i>m</i>′: ở mỗi hàng, gom (theo thứ tự) các pixel có chỉ số seam ≥ <i>m</i> − <i>m</i>′. Thao tác này O(<i>n</i>·<i>m</i>), không cần DP, nên tức thì. Bộ nhớ thấp, tiền xử lý vài giây.</p>
+<p><b>Hỗ trợ phóng to</b> tới <i>M</i> &gt; <i>m</i>: chèn seam như 4.3, nhưng <b>không sửa</b> pixel gốc của seam thứ <i>k</i>; thay vào đó chèn pixel mới bằng trung bình của seam đó với hàng xóm trái (hoặc phải). Seam chèn mang <b>chỉ số âm</b> −1, −2, … Phóng to thêm <i>k</i>: gom từ ảnh đã phóng các pixel có chỉ số &gt; −<i>k</i>.</p>
+<p class="small">Ghi chú khi cài đặt: dấu ≥ / &gt; và việc đánh chỉ số từ 0 hay 1 quyết định lệch 1 pixel. Hãy tự kiểm tra bằng ví dụ nhỏ thay vì tin công thức trong paper.</p>
+<p><b>Cả hai chiều:</b> tính <i>H</i> (index map ngang) và <i>V</i> <b>độc lập</b> sẽ <b>không đúng</b>, vì seam ngang và seam dọc có thể giao nhau ở nhiều hơn một điểm, và xóa seam chiều này phá index map chiều kia. Cách đơn giản: chiều này cho seam tự do, chiều kia chỉ dùng hàng/cột thẳng. Kết quả khi đó tức thì nhưng <b>khác</b> kết quả thứ tự tối ưu ở 4.2. Cách tinh tế hơn nằm ở Appendix A.</p>
+
+<h3>14.13 Appendix A – Constructing Consistent Index Maps</h3>
+<div class="box def"><span class="lbl">Định nghĩa: nhất quán (consistent)</span>
+<p><i>H</i> và <i>V</i> nhất quán nếu <b>mọi seam ngang cắt (hoặc chạm) mọi seam dọc đúng một lần</b> và ngược lại. Khi đó xóa một seam theo chiều bất kỳ sẽ bỏ <b>đúng một pixel</b> khỏi mỗi seam của chiều kia, nên cấu trúc index map được giữ. Nếu không nhất quán, sau khi xóa một seam ngang, các seam dọc sẽ còn số pixel khác nhau và ảnh hết là hình chữ nhật.</p>
+</div>
+<p><b>Ý tưởng:</b> dùng seam <b>"temporally 0-connected"</b>, tức seam liên thông trên <b>ảnh gốc</b> <i>I</i><sup>(0)</sup>, không phải liên thông trên các ảnh đã bị thu dần. Với loại seam này, vi phạm nhất quán <b>chỉ có thể xảy ra ở bước chéo</b>.</p>
+<p><b>Chứng minh (viết lại rõ hơn bản gốc):</b> giả sử seam dọc <i>j</i> chạm seam ngang <i>i</i> hai lần, tại <i>p</i> và <i>q</i>. Gọi Δ<sub>hàng</sub> và Δ<sub>cột</sub> là khoảng cách hàng và cột giữa <i>p</i> và <i>q</i>.</p>
+<ul>
+  <li>Seam dọc có đúng 1 pixel mỗi hàng, nên <i>p</i>, <i>q</i> khác hàng (Δ<sub>hàng</sub> ≥ 1). Mỗi bước xuống 1 hàng nó lệch tối đa 1 cột, nên Δ<sub>cột</sub> ≤ Δ<sub>hàng</sub>.</li>
+  <li>Seam ngang có đúng 1 pixel mỗi cột, nên <i>p</i>, <i>q</i> khác cột. Mỗi bước sang 1 cột nó lệch tối đa 1 hàng, nên Δ<sub>hàng</sub> ≤ Δ<sub>cột</sub>.</li>
+  <li>Suy ra Δ<sub>hàng</sub> = Δ<sub>cột</sub>: hình chữ nhật có hai góc <i>p</i>, <i>q</i> là <b>hình vuông</b>, và cả hai seam đều phải đi chéo ở <b>mọi</b> bước, tức cùng đi theo <b>đường chéo</b>. ∎</li>
+</ul>
+<p>Lập luận này cần mọi seam liên thông trên ảnh gốc, nên chỉ đúng với seam 0-connected.</p>
+<p><b>Thuật toán:</b> vì là 0-connected, có thể tính <b>tất cả</b> seam dọc <b>cùng lúc</b>. Xét từng cặp hàng liền kề của ảnh gốc một cách <b>độc lập</b>: tìm tập tối ưu các "đường 1 cạnh" nối <b>mọi</b> pixel hàng trên với <b>mọi</b> pixel hàng dưới, mỗi pixel nối tới 1 trong 3 hàng xóm. Đây là <b>bài toán phân công có trọng số</b> (weighted assignment), giải bằng <b>thuật toán Hungarian</b> (Kuhn 1955). Ghép các đường 1 cạnh từ trên xuống ta được toàn bộ seam dọc. Sau đó làm chiều ngang tương tự, nhưng <b>che (mask) mọi cạnh chéo</b> đã được seam dọc dùng, nên seam ngang chắc chắn nhất quán (Fig. 17).</p>
+<p class="small">Paper không nêu chi tiết trọng số cạnh cụ thể và cách đánh số thứ tự seam trong phương pháp này (không rõ).</p>
+<div class="box warn"><span class="lbl">Góc nhìn song song</span>
+<p>Đáng chú ý: ở Appendix A, các cặp hàng được giải <b>độc lập</b>. Đây là một thuật toán có cấu trúc song song tự nhiên, trái ngược với seam carving tham lam (seam sau phải đợi seam trước). Nhưng nó cho kết quả <b>khác</b> thuật toán gốc, nên chỉ nên nhắc đến trong báo cáo như hướng mở rộng.</p>
+</div>
+
+<h3>14.14 Section 6 – Limitations</h3>
+<p>Mọi ví dụ trước đó chạy tự động, nhưng phương pháp <b>không tự động thành công trên mọi ảnh</b>. Có thể sửa bằng tín hiệu mức cao, thủ công hoặc tự động: Fig. 14 cho thấy <i>e</i><sub>1</sub> thất bại nhưng thêm face detector thì tốt hơn nhiều. Fig. 15 (tượng Phật): crop mất hoa văn, scale làm méo, tự động không bảo vệ được khuôn mặt (cũng khó với face detector), còn thêm ràng buộc người dùng bảo vệ mặt (và hoa) thì tốt hơn.</p>
+<p>Hai yếu tố giới hạn mà <b>ngay cả thông tin mức cao cũng không cứu được</b> (Fig. 16):</p>
+<ol>
+  <li><b>Lượng nội dung:</b> ảnh quá "đặc", không có vùng ít quan trọng, nên <i>mọi</i> chiến lược resize theo nội dung đều thất bại.</li>
+  <li><b>Bố cục nội dung:</b> ảnh không đặc nhưng các vật xếp sao cho seam không thể vòng qua phần quan trọng.</li>
+</ol>
+<p>Trong những trường hợp đó, paper khuyên chiến lược tốt nhất là <b>scaling</b>.</p>
+
+<h3>14.15 Section 7 – Conclusions and Future Work</h3>
+<p>Tóm tắt: một toán tử resize theo nội dung, seam là đường tối ưu trên một ảnh, được xóa hoặc chèn; dùng cho đổi tỉ lệ, retargeting, khuếch đại nội dung, xóa vật thể; tích hợp dễ với saliency và input người dùng; thêm cấu trúc dữ liệu multi-size cho resize liên tục thời gian thực.</p>
+<p><b>Hướng tương lai</b> tác giả nêu: (1) mở rộng sang <b>video</b>, sau này thành paper 2008; (2) kết hợp seam carving với <b>scaling</b>, vì có lúc scaling tốt hơn, đặc biệt để multi-size images bền vững hơn; (3) cách tốt hơn để <b>kết hợp seam ngang và dọc</b> trong multi-size images.</p>
+
+<h3>14.16 Bảng đối chiếu độ phủ: paper ↔ giáo trình</h3>
+<div class="tw"><table>
+<tr><th>Mục trong paper</th><th>Giáo trình</th></tr>
+<tr><td>Abstract, 1 Introduction</td><td>Ch. 1, 13, 14.1</td></tr>
+<tr><td>2 Background</td><td>14.2</td></tr>
+<tr><td>3 The Operator (pt. 1–4, DP)</td><td>Ch. 8, 10, 14.3</td></tr>
+<tr><td>3.1 Energy Preservation Measure</td><td>14.4</td></tr>
+<tr><td>3.2 Image Energy Functions</td><td>Ch. 9, 14.5</td></tr>
+<tr><td>4.1 Aspect Ratio Change</td><td>Ch. 11, 14.6</td></tr>
+<tr><td>4.2 Optimal Seams-Order (pt. 5–6)</td><td>12.4, 14.7</td></tr>
+<tr><td>4.3 Image Enlarging</td><td>12.1, 14.8</td></tr>
+<tr><td>4.4 Content Amplification</td><td>14.9</td></tr>
+<tr><td>4.5 Gradient Domain</td><td>14.10</td></tr>
+<tr><td>4.6 Object Removal</td><td>12.2–12.3, 14.11</td></tr>
+<tr><td>5 Multi-size Images</td><td>14.12</td></tr>
+<tr><td>6 Limitations</td><td>14.14</td></tr>
+<tr><td>7 Conclusions &amp; Future Work</td><td>14.15</td></tr>
+<tr><td>Appendix A Consistent Index Maps</td><td>14.13</td></tr>
+<tr><td>Figures 1–17</td><td>14.0</td></tr>
+</table></div>
+</section>
+
+<section id="c15">
+<h2 class="chap">Chương 15. Đánh giá phê bình &amp; hướng mở rộng</h2>
+<h3>15.1 Điểm mạnh</h3>
+<ul>
+  <li><b>Đơn giản:</b> toàn bộ thuật toán lõi chỉ vài chục dòng code.</li>
+  <li><b>Tối ưu toàn cục cho một seam:</b> DP cho lời giải chính xác, không xấp xỉ.</li>
+  <li><b>Tổng quát:</b> thay hàm năng lượng là có ứng dụng mới (xóa, bảo vệ, khuôn mặt...).</li>
+</ul>
+<h3>15.2 Điểm yếu</h3>
+<ul>
+  <li><b>Backward energy:</b> <i>e</i><sub>1</sub> đo năng lượng <b>trước</b> khi xóa, không đo năng lượng <b>mới sinh ra</b> khi hai pixel không liên quan bị ghép cạnh nhau, nên có thể tạo vết lởm chởm.</li>
+  <li><b>Tham lam:</b> chuỗi <i>k</i> seam không tối ưu toàn cục.</li>
+  <li><b>Chi phí:</b> O(<i>k</i>·<i>H</i>·<i>W</i>), và mỗi seam phải đợi seam trước. Các seam <b>không độc lập</b>, đây là giới hạn lớn nhất cho song song hóa (chương 17). Paper chỉ báo cáo ~2.2 s cho ảnh 400×500 → 100×100 và gọi resize thời gian thực là "challenging".</li>
+  <li><b>Đánh giá mỏng:</b> chỉ một thước đo định lượng (năng lượng trung bình, Fig. 3, trên một ảnh); còn lại là so sánh bằng mắt, không có user study.</li>
+  <li><b>Ký hiệu chưa chặt:</b> phương trình (5)–(6) lẫn lộn <i>r</i>/<i>c</i> và <i>s</i><sup>x</sup>/<i>s</i><sup>y</sup> (xem 14.7).</li>
+</ul>
+<h3>15.3 Công trình tiếp nối</h3>
+<ul>
+  <li><b>Forward energy</b> — Rubinstein, Shamir, Avidan, <i>Improved Seam Carving for Video Retargeting</i>, SIGGRAPH 2008. Tính chi phí của các cạnh mới tạo ra khi xóa pixel và đưa vào truy hồi DP. Ngoài ra mở rộng sang video bằng graph cut.</li>
+  <li>Các biến thể GPU / song song: nhiều nhóm đã cài seam carving trên GPU, thường chấp nhận <b>xấp xỉ</b> (ví dụ tìm nhiều seam cùng lúc) để đổi lấy tốc độ. Nếu em tham khảo, hãy ghi rõ đó là thay đổi thuật toán, không còn tương đương bản gốc.</li>
+</ul>
+<div class="box warn"><span class="lbl">Phạm vi project</span>
+<p>Project của em giữ <b>đúng thuật toán gốc</b> (backward energy <i>e</i><sub>1</sub>, xóa seam dọc tham lam), và song song hóa sao cho kết quả <b>giống hệt</b> bản tuần tự. Các mở rộng như forward energy hay multi-seam chỉ làm nếu dư thời gian, và phải đánh dấu rõ.</p>
+</div>
+</section>
+
+<!-- ======================= PHẦN IV ======================= -->
+<h2 class="part-title">Phần IV · Hướng tới song song</h2>
+
+<section id="c16">
+<h2 class="chap">Chương 16. Kiến thức song song tối thiểu</h2>
+<h3>16.1 Thread và mô hình fork–join</h3>
+<p>CPU hiện đại có nhiều <b>core</b>. Một chương trình có thể tạo nhiều <b>thread</b> (luồng) chạy đồng thời trên các core, <b>chung bộ nhớ</b>. OpenMP dùng mô hình <b>fork–join</b>: chương trình chạy một luồng; gặp vùng song song thì "rẽ nhánh" (fork) thành nhóm luồng; hết vùng thì "hợp lại" (join).</p>
+<div class="diagram">
+<svg viewBox="0 0 480 150" width="480" role="img" aria-label="Mô hình fork-join">
+  <g stroke="var(--accent-2)" stroke-width="3" fill="none" stroke-linecap="round">
+    <line x1="20" y1="75" x2="120" y2="75"/>
+    <path d="M120 75 C150 75 150 25 180 25 L300 25 C330 25 330 75 360 75"/>
+    <path d="M120 75 C150 75 150 58 180 58 L300 58 C330 58 330 75 360 75"/>
+    <path d="M120 75 C150 75 150 92 180 92 L300 92 C330 92 330 75 360 75"/>
+    <path d="M120 75 C150 75 150 125 180 125 L300 125 C330 125 330 75 360 75"/>
+    <line x1="360" y1="75" x2="460" y2="75"/>
+  </g>
+  <g font-family="Be Vietnam Pro, sans-serif" font-size="12.5" fill="var(--text)" text-anchor="middle">
+    <text x="70" y="65">tuần tự</text><text x="240" y="16">thread 0..3 chạy song song</text><text x="410" y="65">tuần tự</text>
+    <text x="120" y="145" fill="var(--muted)">fork</text><text x="360" y="145" fill="var(--muted)">join (barrier ngầm)</text>
+  </g>
+</svg>
+</div>
+<h3>16.2 Các directive OpenMP cần biết</h3>
+<div class="tw"><table>
+<tr><th>Directive</th><th>Ý nghĩa</th></tr>
+<tr><td><code>#pragma omp parallel</code></td><td>Tạo nhóm thread; mỗi thread chạy khối code bên dưới.</td></tr>
+<tr><td><code>#pragma omp for</code></td><td>Chia các vòng lặp của <code>for</code> cho các thread trong nhóm. Cuối vòng có <b>barrier ngầm</b>: mọi thread đợi nhau.</td></tr>
+<tr><td><code>#pragma omp parallel for</code></td><td>Gộp hai cái trên: tạo nhóm + chia vòng lặp.</td></tr>
+<tr><td><code>schedule(static|dynamic|guided)</code></td><td>Cách chia: static chia đều cố định (tốt khi mỗi vòng tốn như nhau); dynamic phát việc theo từng mẻ.</td></tr>
+<tr><td><code>private(x)</code>, <code>shared(y)</code></td><td>Mỗi thread có bản riêng của <code>x</code>; <code>y</code> dùng chung. Biến khai báo <b>bên trong</b> vòng lặp tự động là private.</td></tr>
+<tr><td><code>reduction(min:v)</code></td><td>Mỗi thread tính min cục bộ, cuối cùng OpenMP gộp lại an toàn. Dùng cho tìm min hàng cuối.</td></tr>
+<tr><td><code>#pragma omp barrier</code></td><td>Mọi thread dừng ở đây đến khi tất cả cùng tới.</td></tr>
+<tr><td><code>#pragma omp single</code></td><td>Chỉ một thread chạy khối này (các thread khác đợi ở cuối, trừ khi có <code>nowait</code>).</td></tr>
+</table></div>
+<h3>16.3 Race condition</h3>
+<div class="box def"><span class="lbl">Định nghĩa</span>
+<p><b>Race condition</b> (tranh chấp dữ liệu) xảy ra khi ≥ 2 thread truy cập cùng một ô nhớ, ít nhất một thread <b>ghi</b>, và không có đồng bộ. Kết quả phụ thuộc thứ tự chạy ngẫu nhiên, nên lúc đúng lúc sai, rất khó debug.</p>
+</div>
+<pre><code>// SAI: nhiều thread cùng ghi minVal, minIdx
+float minVal = INF; int minIdx = -1;
+#pragma omp parallel for
+for (int j = 0; j &lt; W; ++j)
+    if (M[last + j] &lt; minVal) { minVal = M[last + j]; minIdx = j; }  // race!</code></pre>
+<p>Cách sửa: mỗi thread giữ (minVal, minIdx) riêng, rồi gộp trong <code>critical</code>, hoặc dùng <code>declare reduction</code> tự định nghĩa. Với <i>W</i> chỉ vài nghìn, làm tuần tự bước này thường còn nhanh hơn. Hãy <b>đo</b> rồi quyết định.</p>
+<h3>16.4 Đo hiệu năng: speedup, efficiency, Amdahl</h3>
+<div class="eq">Speedup <i>S</i>(<i>p</i>) = <i>T</i><sub>1</sub> / <i>T</i><sub><i>p</i></sub> &nbsp;&nbsp;&nbsp;&nbsp; Efficiency <i>E</i>(<i>p</i>) = <i>S</i>(<i>p</i>) / <i>p</i></div>
+<p><i>T</i><sub>1</sub>: thời gian với 1 thread (hoặc bản tuần tự). <i>T</i><sub><i>p</i></sub>: với <i>p</i> thread. <b>Định luật Amdahl</b>: nếu chỉ một phần <i>f</i> của chương trình song song được, phần còn lại (1 − <i>f</i>) chạy tuần tự, thì:</p>
+<div class="eq"><i>S</i>(<i>p</i>) = 1 / ( (1 − <i>f</i>) + <i>f</i> / <i>p</i> ) &nbsp;&nbsp; ≤ &nbsp;&nbsp; 1 / (1 − <i>f</i>)</div>
+<div class="demo">
+<h4>Demo 3 · Máy tính Amdahl</h4>
+<div class="ctrl"><label for="amF">Phần song song được f =</label><input type="range" id="amF" min="0" max="100" value="90"><span id="amFv" class="mono"></span></div>
+<div class="ctrl"><label for="amP">Số thread p =</label><input type="range" id="amP" min="1" max="64" value="8"><span id="amPv" class="mono"></span></div>
+<div class="status" id="amOut"></div>
+<p class="small">Đây là <b>mô hình lý thuyết</b>, không phải số đo. Thực tế còn có overhead tạo thread, barrier và giới hạn băng thông bộ nhớ, nên speedup đo được thường thấp hơn.</p>
+</div>
+<h3>16.5 Bộ nhớ: cache &amp; false sharing</h3>
+<p>CPU đọc bộ nhớ theo khối 64 byte (<b>cache line</b>). Truy cập liên tiếp thì nhanh. <b>False sharing</b>: hai thread ghi vào các biến <i>khác nhau</i> nhưng nằm chung một cache line, khiến cache line bị "giành giật" qua lại và chạy chậm. Chia vòng lặp theo khối liền (<code>schedule(static)</code>) giúp mỗi thread làm một đoạn liên tiếp, giảm hiện tượng này.</p>
+</section>
+
+<section id="c17">
+<h2 class="chap">Chương 17. Phân tích tính song song của Seam Carving</h2>
+<p>Đây là chương quan trọng nhất cho môn học. Ta phân tích từng bước của một vòng lặp xóa seam.</p>
+<div class="tw"><table>
+<tr><th>Bước</th><th>Phụ thuộc dữ liệu</th><th>Song song?</th><th>Đồng bộ</th></tr>
+<tr><td>1. Năng lượng</td><td>Mỗi pixel chỉ đọc ảnh, ghi ô riêng</td><td><span class="pill">Hoàn toàn</span></td><td>1 barrier cuối</td></tr>
+<tr><td>2. DP <i>M</i></td><td>Hàng <i>i</i> cần hàng <i>i</i>−1</td><td><span class="pill">Trong hàng</span></td><td>1 barrier <b>mỗi hàng</b> → <i>H</i>−1 barrier</td></tr>
+<tr><td>3a. Min hàng cuối</td><td>Gộp <i>W</i> giá trị</td><td>Reduction (lợi ích nhỏ)</td><td>Gộp kết quả</td></tr>
+<tr><td>3b. Truy vết</td><td>seam[i] cần seam[i+1]</td><td><span class="pill">Không</span></td><td>—</td></tr>
+<tr><td>4. Xóa seam</td><td>Mỗi hàng độc lập</td><td><span class="pill">Hoàn toàn</span></td><td>1 barrier cuối</td></tr>
+<tr><td>Vòng ngoài (seam thứ <i>k</i>)</td><td>Seam <i>k</i> cần ảnh sau seam <i>k</i>−1</td><td><span class="pill">Không</span></td><td>—</td></tr>
+</table></div>
+
+<h3>17.1 Bước 1 – Năng lượng</h3>
+<pre><code>#pragma omp parallel for schedule(static)
+for (int i = 0; i &lt; H; ++i)
+    for (int j = 0; j &lt; W; ++j)
+        energy[i*W + j] = computeE1(gray, i, j, H, W);   // chỉ đọc gray, ghi ô (i,j)</code></pre>
+<p><b>Vì sao an toàn:</b> mỗi thread ghi các hàng khác nhau của <code>energy</code>; <code>gray</code> chỉ đọc. Không có race. Song song theo <b>hàng</b> (vòng ngoài) để mỗi thread xử lý vùng nhớ liên tiếp và overhead chia việc chỉ phát sinh 1 lần.</p>
+
+<h3>17.2 Bước 2 – DP: trái tim của bài toán</h3>
+<p>Hai cách viết, khác nhau về overhead:</p>
+<pre><code>// Cách A: parallel for trong mỗi hàng → tạo/kích hoạt nhóm thread H-1 lần
+for (int i = 1; i &lt; H; ++i) {
+    #pragma omp parallel for
+    for (int j = 0; j &lt; W; ++j) M[i*W+j] = energy[i*W+j] + min3(M, i-1, j, W);
+}
+
+// Cách B: một vùng parallel duy nhất, "omp for" trong mỗi hàng
+#pragma omp parallel
+{
+    for (int i = 1; i &lt; H; ++i) {         // mọi thread cùng chạy vòng i
+        #pragma omp for schedule(static)    // chia cột j; barrier ngầm ở cuối
+        for (int j = 0; j &lt; W; ++j) M[i*W+j] = energy[i*W+j] + min3(M, i-1, j, W);
+    }
+}</code></pre>
+<p><b>Đồng bộ ở đâu?</b> Barrier ngầm cuối mỗi <code>omp for</code> đảm bảo: khi bất kỳ thread nào bắt đầu hàng <i>i</i>+1 thì <b>toàn bộ</b> hàng <i>i</i> đã được ghi xong. Nếu bỏ barrier (thêm <code>nowait</code>), một thread nhanh có thể đọc <i>M</i>(<i>i</i>, <i>j</i>±1) do thread hàng xóm <b>chưa kịp ghi</b>. Đó là race condition, cho kết quả sai ngẫu nhiên.</p>
+<p><b>Vấn đề hiệu năng:</b> mỗi hàng chỉ có <i>W</i> phép tính rất nhẹ (một min, một cộng), trong khi mỗi barrier tốn một khoảng thời gian cố định. Với ảnh <i>H</i> = 1080 và xóa 500 seam, số barrier riêng ở bước DP là 500 × 1079 ≈ 540 000. Nếu <i>W</i> nhỏ, thời gian đồng bộ có thể lấn át thời gian tính. Đây là điều em cần <b>đo</b> ở M4 (chạy với nhiều kích thước ảnh và số thread khác nhau).</p>
+<p><b>Ý tưởng tối ưu nâng cao</b> (để dành cho M5, phải kiểm chứng): chia lưới thành các khối hình thang/tam giác để mỗi thread tự tính nhiều hàng trong vùng của mình trước khi cần đồng bộ, giảm số barrier. Đổi lại sẽ có một ít tính toán thừa hoặc logic phức tạp hơn.</p>
+
+<h3>17.3 Bước 3 – Truy vết: phần tuần tự bắt buộc</h3>
+<p>seam[i] phụ thuộc seam[i+1], tạo thành chuỗi phụ thuộc dài <i>H</i>. Không song song được. May là chi phí chỉ O(<i>H</i>) so với O(<i>H</i>·<i>W</i>) của các bước khác, nên phần tuần tự (1 − <i>f</i>) trong Amdahl khá nhỏ. Em nên <b>đo</b> tỉ lệ thực tế.</p>
+
+<h3>17.4 Bước 4 – Xóa seam</h3>
+<pre><code>#pragma omp parallel for schedule(static)
+for (int i = 0; i &lt; H; ++i) {
+    int s = seam[i];                         // seam: chỉ đọc
+    for (int j = 0; j &lt; W-1; ++j)            // ghi hàng i của out: riêng thread
+        out[i*(W-1) + j] = in[i*W + (j &lt; s ? j : j+1)];
+}</code></pre>
+<p>Ghi sang buffer <code>out</code> mới là an toàn tuyệt đối. Nếu xóa <b>tại chỗ</b> (in-place) trong một mảng có stride cố định thì cũng an toàn, miễn mỗi hàng do đúng một thread xử lý. Nhưng nếu dồn chặt ảnh thành stride <i>W</i>−1 ngay trong cùng mảng, hàng <i>i</i> sẽ ghi đè lên vùng của hàng <i>i</i>−1 do thread khác đang đọc, gây race. Hãy dùng hai buffer và hoán đổi (double buffering), hoặc giữ <b>stride cố định</b> và dịch tại chỗ trong từng hàng (an toàn, xem <a href="#c19">chương 19.3</a>).</p>
+
+<h3>17.5 Vì sao không song song "giữa các seam"?</h3>
+<p>Seam thứ <i>k</i> được tính trên ảnh <b>đã xóa</b> seam <i>k</i>−1, và năng lượng quanh seam cũ đã thay đổi. Tính nhiều seam cùng lúc trên cùng một ảnh sẽ cho kết quả <b>khác</b> thuật toán gốc (các seam có thể cắt nhau, chất lượng giảm). Đây là giới hạn cấu trúc của thuật toán, và em nên viết điều này trong báo cáo.</p>
+
+<h3>17.6 Tối ưu không phụ thuộc số thread</h3>
+<ul>
+  <li><b>Cập nhật năng lượng cục bộ:</b> sau khi xóa seam, chỉ các pixel sát seam thay đổi năng lượng. Cập nhật vùng nhỏ này thay vì tính lại cả ảnh. Đây là tối ưu thuật toán, phải kiểm chứng kết quả giống hệt bản tính lại toàn bộ.</li>
+  <li><b>Kiểu dữ liệu:</b> năng lượng <code>int</code> hoặc <code>float</code> thay vì <code>double</code> giúp đỡ tốn băng thông bộ nhớ.</li>
+  <li><b>Seam ngang:</b> chuyển vị ảnh rồi dùng lại code seam dọc, để vòng trong luôn chạy trên vùng nhớ liên tiếp.</li>
+</ul>
+<div class="box q"><span class="lbl">Tự kiểm tra 17</span>
+<p>(a) Trong Cách B ở 17.2, biến <code>i</code> là shared hay private? Có sao không? (b) Nếu thêm <code>nowait</code> vào <code>omp for</code> trong DP thì chuyện gì xảy ra?</p>
+<details><summary>Đáp án</summary><p>(a) <code>i</code> khai báo trong khối <code>parallel</code> nên mỗi thread có bản riêng (private). Mọi thread chạy cùng dãy giá trị <code>i</code> và gặp nhau ở barrier mỗi hàng, nên đúng. (b) Mất barrier: thread A có thể tính hàng <i>i</i>+1 trong khi thread B chưa ghi xong hàng <i>i</i> ở vùng biên giữa hai khối cột. A đọc giá trị cũ hoặc rác, gây race condition và seam sai, lúc có lúc không.</p></details>
+</div>
+</section>
+
+<section id="c18">
+<h2 class="chap">Chương 18. Lộ trình project</h2>
+<div class="tw"><table>
+<tr><th>Mốc</th><th>Nội dung</th><th>Kiến thức dùng</th></tr>
+<tr><td>M0</td><td>Nghiên cứu &amp; kiến trúc: đọc paper, chốt hàm năng lượng, xử lý biên, tie-breaking, kiểu dữ liệu</td><td>Ch. 1–15</td></tr>
+<tr><td>M1</td><td>Bản tuần tự (baseline đúng)</td><td>Ch. 2–4, 10–11</td></tr>
+<tr><td>M2</td><td>Bản OpenMP: năng lượng, DP theo hàng, xóa seam</td><td>Ch. 16–17</td></tr>
+<tr><td>M3</td><td>Kiểm thử: seam và ảnh kết quả giống hệt từng pixel giữa hai bản, với nhiều số thread</td><td>Ch. 10 (tie-breaking), 16.3</td></tr>
+<tr><td>M4</td><td>Benchmark: nhiều kích thước ảnh, 1/2/4/8… thread, nhiều lần lặp, đo riêng từng bước</td><td>Ch. 16.4</td></tr>
+<tr><td>M5</td><td>Tối ưu: giảm barrier, cập nhật năng lượng cục bộ, layout bộ nhớ</td><td>Ch. 17.2, 17.6</td></tr>
+<tr><td>M6</td><td>Báo cáo &amp; thuyết trình: giải thích vì sao speedup đạt được như vậy (Amdahl, overhead đồng bộ)</td><td>Tất cả</td></tr>
+</table></div>
+<p><b>Tra cứu theo mốc:</b> M0 → ch. 19, 21; M1 → ch. 20, 22; M2 → ch. 24; M3 → ch. 27, 29; M4 → ch. 23, 28; M5 → ch. 22.4, 24.1, 24.6, 25; M6 → ch. 30.</p>
+<div class="box ex"><span class="lbl">Bài tập trước khi code</span>
+<ol>
+  <li>Tính tay bảng <i>M</i> và seam cho ma trận 5×5 tự chọn, rồi kiểm tra bằng Demo 1 (sửa mảng <code>DP_E</code> trong mã nguồn trang này).</li>
+  <li>Vẽ sơ đồ: mỗi bước của vòng lặp chính đọc mảng nào, ghi mảng nào.</li>
+  <li>Đánh dấu trong sơ đồ: chỗ nào cần barrier, chỗ nào chạy tuần tự.</li>
+  <li>Viết ra quy tắc tie-breaking và xử lý biên em chọn, rồi ghi vào WORKLOG.</li>
+</ol>
+</div>
+</section>
+
+<!-- ======================= PHẦN V ======================= -->
+<h2 class="part-title">Phần V · Từ lý thuyết tới code</h2>
+<p class="small">Phần I–IV giúp em <i>hiểu</i>. Phần V–VII giúp em <i>làm</i>: mọi quyết định thiết kế, công cụ, cách kiểm thử và đo đạc mà một project Seam Carving + OpenMP cần. Code trong sách là <b>minh họa để hiểu</b>, không phải code chính thức của project. Khi viết project, hãy tự gõ lại, hiểu từng dòng và kiểm thử.</p>
+
+<section id="c19">
+<h2 class="chap">Chương 19. Thiết kế dữ liệu &amp; kiểu số</h2>
+<h3>19.1 Các mảng cần có</h3>
+<div class="tw"><table>
+<tr><th>Mảng</th><th>Kích thước</th><th>Kiểu đề xuất</th><th>Vai trò</th></tr>
+<tr><td><code>color</code></td><td><i>H</i> × stride × 3</td><td><code>uint8_t</code></td><td>Ảnh màu BGR; cuối cùng ghi ra file</td></tr>
+<tr><td><code>gray</code></td><td><i>H</i> × stride</td><td><code>uint8_t</code> hoặc <code>int</code></td><td>Ảnh xám để tính năng lượng</td></tr>
+<tr><td><code>energy</code></td><td><i>H</i> × stride</td><td><code>int</code> (hoặc <code>uint16_t</code>)</td><td><i>e</i>(<i>i</i>, <i>j</i>)</td></tr>
+<tr><td><code>M</code></td><td><i>H</i> × stride</td><td><code>int</code> (32 bit)</td><td>Năng lượng tích lũy</td></tr>
+<tr><td><code>seam</code></td><td><i>H</i></td><td><code>int</code></td><td>Cột của seam ở mỗi hàng</td></tr>
+<tr><td><code>parent</code> (tùy chọn)</td><td><i>H</i> × stride</td><td><code>int8_t</code></td><td>Hướng −1/0/+1 để truy vết nhanh</td></tr>
+</table></div>
+<p><b>Luồng dữ liệu một vòng lặp:</b> <code>gray</code> → (tính năng lượng) → <code>energy</code> → (DP) → <code>M</code> → (truy vết) → <code>seam</code> → (xóa) → <code>color</code>, <code>gray</code> (và <code>energy</code> nếu cập nhật cục bộ) hẹp đi 1 cột.</p>
+
+<h3>19.2 Vì sao dùng số nguyên?</h3>
+<ul>
+  <li><b>Xác định (deterministic):</b> phép cộng số nguyên có tính kết hợp tuyệt đối, nên bản tuần tự và song song cho <b>từng bit giống nhau</b>. Với <code>float</code>, (a+b)+c có thể khác a+(b+c) ở bit cuối, và một ô <i>M</i> lệch nhau có thể đổi hướng seam khi có hai giá trị gần bằng nhau.</li>
+  <li><b>So sánh bằng nhau chính xác</b>, nên quy tắc tie-breaking hoạt động đúng như thiết kế.</li>
+</ul>
+<div class="box ex"><span class="lbl">Kiểm tra tràn số (overflow)</span>
+<p>Sai phân trung tâm không chia 2: |g<sub>x</sub>| ≤ 255, |g<sub>y</sub>| ≤ 255, nên <i>e</i> ≤ 510. Sobel: mỗi thành phần ≤ 4·255 = 1020, nên <i>e</i> ≤ 2040. Giá trị <i>M</i> lớn nhất ≤ <i>H</i> · 2040. Với <i>H</i> = 10 000: 20 400 000, nhỏ hơn rất nhiều so với 2<sup>31</sup> − 1 ≈ 2.1·10<sup>9</sup>. <code>int</code> 32 bit an toàn. Còn nếu cộng năng lượng 3 kênh màu thì nhân thêm 3, vẫn an toàn.</p>
+</div>
+
+<h3>19.3 Stride cố định &amp; chiều rộng logic</h3>
+<p>Mỗi lần xóa seam, cấp phát lại mảng mới thì tốn kém. Cách gọn hơn: cấp phát <b>một lần</b> với <code>stride = W0</code> (chiều rộng ban đầu), và giữ biến <code>W</code> là <b>chiều rộng logic</b> hiện tại. Pixel (<i>i</i>, <i>j</i>) luôn ở <code>i*stride + j</code>; phần đuôi mỗi hàng (từ <code>W</code> tới <code>stride-1</code>) bỏ trống.</p>
+<pre><code>// Xóa seam tại chỗ với stride cố định: mỗi hàng chỉ dịch phần bên phải seam
+#pragma omp parallel for schedule(static)
+for (int i = 0; i &lt; H; ++i) {
+    uint8_t* row = gray + (size_t)i * stride;
+    for (int j = seam[i]; j &lt; W - 1; ++j)
+        row[j] = row[j + 1];            // chỉ chạm vào hàng i của chính thread này
+}
+W -= 1;                                  // cập nhật SAU vùng song song</code></pre>
+<p><b>Vì sao an toàn khi song song:</b> hàng <i>i</i> nằm trong đoạn [<i>i</i>·stride, (<i>i</i>+1)·stride) và không bao giờ chồng lên hàng khác. Mỗi thread chỉ đọc và ghi hàng của mình. (Trái lại, nếu "nén" ảnh thành stride <i>W</i>−1 ngay trong cùng mảng thì hàng <i>i</i> phải ghi đè lên vùng của hàng <i>i</i>−1, gây race. Xem 17.4.) Lợi ích phụ: trung bình chỉ dịch ~<i>W</i>/2 phần tử mỗi hàng thay vì chép cả hàng.</p>
+<div class="box warn"><span class="lbl">Bất biến (invariant) cần giữ</span>
+<p>Sau mỗi vòng lặp: <code>color</code>, <code>gray</code>, <code>energy</code> (nếu dùng) đều đã xóa <b>cùng một seam</b>, và <code>W</code> được giảm <b>đúng một lần, ở một chỗ duy nhất</b>. Nửa số bug của project seam carving là do một mảng quên xóa seam hoặc dùng <code>W</code> cũ.</p>
+</div>
+
+<h3>19.4 Seam ngang: chuyển vị thay vì viết lại</h3>
+<p>Seam ngang trên ảnh <i>I</i> chính là seam dọc trên ảnh chuyển vị <i>I</i><sup>T</sup>. Cách khuyên dùng: <b>chuyển vị ảnh</b> (<code>cv::transpose</code> hoặc tự viết), chạy code seam dọc, rồi chuyển vị lại. Lợi ích: chỉ một bộ code cần kiểm thử, và vòng lặp trong luôn chạy trên bộ nhớ liên tiếp (thân thiện cache). Chi phí chuyển vị là O(<i>H</i>·<i>W</i>) một lần, không đáng kể so với O(<i>k</i>·<i>H</i>·<i>W</i>).</p>
+</section>
+
+<section id="c20">
+<h2 class="chap">Chương 20. OpenCV tối thiểu cho project</h2>
+<p>Trong project, OpenCV chủ yếu dùng để <b>đọc/ghi ảnh</b>. Phần tính toán nên tự viết trên mảng thô, để em kiểm soát và song song hóa được.</p>
+<h3>20.1 <code>cv::Mat</code> trong 5 phút</h3>
+<pre><code>#include &lt;opencv2/opencv.hpp&gt;
+
+cv::Mat img = cv::imread("input.jpg", cv::IMREAD_COLOR);  // luôn 3 kênh, thứ tự B-G-R
+if (img.empty()) { std::cerr &lt;&lt; "Cannot read image\n"; return 1; }
+
+int H = img.rows, W = img.cols;          // rows = chiều cao, cols = chiều rộng
+// img.type() == CV_8UC3 : 8-bit unsigned, 3 channels
+
+cv::Vec3b px = img.at&lt;cv::Vec3b&gt;(i, j);  // (hàng, cột) — chậm, có kiểm tra ở bản debug
+uchar B = px[0], G = px[1], R = px[2];
+
+const uchar* row = img.ptr&lt;uchar&gt;(i);   // con trỏ tới đầu hàng i — nhanh
+// row[3*j + 0] = B, row[3*j + 1] = G, row[3*j + 2] = R
+
+cv::imwrite("output.png", out);          // PNG không nén mất dữ liệu → so sánh pixel được</code></pre>
+<h3>20.2 Chép dữ liệu ra mảng của mình và ngược lại</h3>
+<pre><code>std::vector&lt;uint8_t&gt; color((size_t)H * W * 3);
+for (int i = 0; i &lt; H; ++i)                       // chép theo hàng: an toàn cả khi Mat không liên tục
+    std::memcpy(&amp;color[(size_t)i * W * 3], img.ptr&lt;uchar&gt;(i), (size_t)W * 3);
+
+// ... chạy seam carving, chiều rộng còn lại Wn, stride = W ...
+
+cv::Mat out(H, Wn, CV_8UC3);
+for (int i = 0; i &lt; H; ++i)
+    std::memcpy(out.ptr&lt;uchar&gt;(i), &amp;color[(size_t)i * W * 3], (size_t)Wn * 3);</code></pre>
+<p><code>img.step</code> là số <b>byte</b> mỗi hàng của Mat, có thể lớn hơn <code>cols*3</code> nếu Mat là vùng con (ROI). <code>img.isContinuous()</code> cho biết các hàng có nằm liền nhau không. Chép theo hàng như trên thì đúng trong mọi trường hợp.</p>
+<h3>20.3 Ba cái bẫy OpenCV</h3>
+<div class="tw"><table>
+<tr><th>Bẫy</th><th>Hậu quả</th><th>Cách tránh</th></tr>
+<tr><td><code>cv::Mat b = a;</code> chỉ chép <b>header</b>, chung dữ liệu (đếm tham chiếu)</td><td>Sửa <code>b</code> làm hỏng <code>a</code>; bản tuần tự và song song vô tình dùng chung ảnh đầu vào đã bị sửa</td><td>Dùng <code>a.clone()</code> hoặc <code>a.copyTo(b)</code> khi cần bản sao thật</td></tr>
+<tr><td>Thứ tự kênh là <b>BGR</b>, không phải RGB</td><td>Sai công thức xám (hệ số 0.299 nhân nhầm vào B)</td><td>Nhớ <code>px[0]</code> = B, <code>px[2]</code> = R</td></tr>
+<tr><td>OpenCV có <b>thread pool riêng</b></td><td>Khi đo, các hàm OpenCV có thể tự chạy song song và làm nhiễu kết quả</td><td>Không gọi hàm OpenCV trong vùng được đo; hoặc <code>cv::setNumThreads(1)</code></td></tr>
+</table></div>
+<h3>20.4 Ảnh xám bằng số nguyên</h3>
+<p><code>cv::cvtColor</code> dùng phép làm tròn nội bộ riêng. Để chủ động và xác định, có thể tự tính bằng số nguyên:</p>
+<pre><code>// Y = round(0.299 R + 0.587 G + 0.114 B), tính hoàn toàn bằng số nguyên
+gray[i*stride + j] = (uint8_t)((299 * R + 587 * G + 114 * B + 500) / 1000);</code></pre>
+<p>Dùng cách nào cũng được, miễn <b>bản tuần tự và song song dùng chung một hàm</b>. Ảnh xám chỉ cần tính <b>một lần</b> lúc đầu; sau đó xóa seam khỏi <code>gray</code> song song với <code>color</code>, không cần tính lại.</p>
+</section>
+
+<section id="c21">
+<h2 class="chap">Chương 21. CMake + OpenMP trên Windows</h2>
+<h3>21.1 CMakeLists.txt mẫu</h3>
+<pre><code>cmake_minimum_required(VERSION 3.16)
+project(SeamCarving LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_package(OpenCV REQUIRED)        # có thể cần -DOpenCV_DIR=&lt;thư mục build của OpenCV&gt;
+find_package(OpenMP REQUIRED)
+
+add_executable(seam_carving
+    src/main.cpp src/energy.cpp src/seam_seq.cpp src/seam_omp.cpp)
+target_include_directories(seam_carving PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(seam_carving PRIVATE ${OpenCV_LIBS} OpenMP::OpenMP_CXX)
+
+if (MSVC)
+    target_compile_options(seam_carving PRIVATE /W4)
+else()
+    target_compile_options(seam_carving PRIVATE -Wall -Wextra)
+endif()</code></pre>
+<pre><code># Cấu hình &amp; build bản Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release      # --config cần cho generator Visual Studio (multi-config)</code></pre>
+<p class="small">Danh sách file trong <code>add_executable</code> chỉ là gợi ý cấu trúc. Em tự quyết theo thiết kế M0.</p>
+
+<h3>21.2 Cảnh báo quan trọng: MSVC chỉ hỗ trợ OpenMP 2.0</h3>
+<p>Trình biên dịch Microsoft (Visual Studio) với cờ <code>/openmp</code> mặc định chỉ hỗ trợ <b>OpenMP 2.0 (2002)</b>. Hệ quả thực tế:</p>
+<div class="tw"><table>
+<tr><th>Tính năng</th><th>Cần phiên bản</th><th>MSVC <code>/openmp</code></th></tr>
+<tr><td>Biến lặp <code>unsigned</code> / <code>size_t</code> trong <code>omp for</code></td><td>3.0</td><td>Không, biến lặp phải là <code>int</code> có dấu</td></tr>
+<tr><td><code>reduction(min:x)</code>, <code>reduction(max:x)</code></td><td>3.1</td><td>Không, phải tự viết (chương 24.3)</td></tr>
+<tr><td><code>collapse(2)</code>, <code>task</code></td><td>3.0</td><td>Không</td></tr>
+<tr><td><code>#pragma omp simd</code>, <code>OMP_PROC_BIND</code>, <code>OMP_PLACES</code></td><td>4.0</td><td>Không</td></tr>
+</table></div>
+<p>Lựa chọn: (a) viết code chỉ dùng tính năng 2.0, chạy được ở mọi nơi; (b) dùng <code>/openmp:llvm</code> của MSVC bản mới (hỗ trợ nhiều tính năng hơn; hãy kiểm tra tài liệu MSVC cho phiên bản em cài); (c) dùng GCC (MinGW-w64/MSYS2) hoặc Clang với <code>-fopenmp</code>, hỗ trợ OpenMP mới hơn nhiều. Thầy khuyên <b>(a)</b> cho phần lõi để tránh phụ thuộc trình biên dịch, và ghi rõ compiler + phiên bản vào WORKLOG.</p>
+<h3>21.3 Kiểm tra OpenMP thực sự được bật</h3>
+<pre><code>#ifdef _OPENMP
+    std::printf("OpenMP %d, max threads = %d\n", _OPENMP, omp_get_max_threads());
+#else
+    std::printf("OpenMP NOT enabled!\n");   // pragma bị bỏ qua im lặng → chạy tuần tự
+#endif
+// _OPENMP: 200203 = 2.0, 200805 = 3.0, 201107 = 3.1, 201307 = 4.0, 201511 = 4.5, 201811 = 5.0</code></pre>
+<div class="box warn"><span class="lbl">Bẫy kinh điển</span>
+<p>Nếu quên bật OpenMP, mọi <code>#pragma omp</code> bị <b>bỏ qua im lặng</b>: chương trình vẫn chạy đúng nhưng speedup = 1. Luôn in ra dòng trên ở đầu chương trình benchmark.</p>
+</div>
+<h3>21.4 Điều khiển số thread</h3>
+<ul>
+  <li>Biến môi trường: PowerShell <code>$env:OMP_NUM_THREADS = "4"</code>; Bash <code>export OMP_NUM_THREADS=4</code>.</li>
+  <li>Trong code: <code>omp_set_num_threads(p);</code> trước vùng song song. Đây là cách tiện nhất cho script benchmark (đọc <i>p</i> từ tham số dòng lệnh).</li>
+  <li>Đo thời gian: <code>double t = omp_get_wtime();</code> (giây, đồng hồ thực) hoặc <code>std::chrono::steady_clock</code>.</li>
+  <li><b>Luôn đo bản Release.</b> Bản Debug tắt tối ưu, nên số đo vô nghĩa.</li>
+</ul>
+</section>
+
+<section id="c22">
+<h2 class="chap">Chương 22. Cài đặt tuần tự chi tiết (baseline)</h2>
+<p>Bản tuần tự là <b>chuẩn đúng</b> (correctness baseline) của cả project: mọi bản song song phải cho kết quả giống hệt nó. Vì vậy nó phải đơn giản, rõ ràng, đã được chứng minh đúng.</p>
+<h3>22.1 Năng lượng</h3>
+<pre><code>// e1 với sai phân trung tâm (không chia 2), biên kiểu clamp. Trả về int.
+inline int energyAt(const uint8_t* g, int i, int j, int H, int W, int stride) {
+    int jl = (j &gt; 0)     ? j - 1 : 0;
+    int jr = (j &lt; W - 1) ? j + 1 : W - 1;
+    int iu = (i &gt; 0)     ? i - 1 : 0;
+    int id = (i &lt; H - 1) ? i + 1 : H - 1;
+    int gx = (int)g[i * stride + jr] - (int)g[i * stride + jl];
+    int gy = (int)g[id * stride + j] - (int)g[iu * stride + j];
+    return std::abs(gx) + std::abs(gy);
+}</code></pre>
+<p>Chú ý <code>(int)</code> trước khi trừ: <code>uint8_t</code> được nâng lên <code>int</code> trong C++, nhưng ép kiểu rõ ràng giúp người đọc thấy không có tràn số không dấu.</p>
+
+<h3>22.2 Chứng minh DP đúng (quy nạp)</h3>
+<div class="box def"><span class="lbl">Mệnh đề</span>
+<p><i>M</i>(<i>i</i>, <i>j</i>) bằng chi phí nhỏ nhất trong mọi đường liên thông từ hàng 0 tới (<i>i</i>, <i>j</i>).</p>
+</div>
+<p><b>Cơ sở</b> (<i>i</i> = 0): đường chỉ gồm một pixel, nên chi phí là <i>e</i>(0, <i>j</i>) = <i>M</i>(0, <i>j</i>). ✓</p>
+<p><b>Bước quy nạp:</b> giả sử đúng cho hàng <i>i</i>−1. Mọi đường tới (<i>i</i>, <i>j</i>) đi qua đúng một ô (<i>i</i>−1, <i>j</i>′) với |<i>j</i>′ − <i>j</i>| ≤ 1. Chi phí đường = chi phí đoạn đầu tới (<i>i</i>−1, <i>j</i>′) + <i>e</i>(<i>i</i>, <i>j</i>) ≥ <i>M</i>(<i>i</i>−1, <i>j</i>′) + <i>e</i>(<i>i</i>, <i>j</i>) ≥ <i>M</i>(<i>i</i>, <i>j</i>). Dấu bằng đạt được khi ghép đoạn đầu tối ưu tới ô cha có <i>M</i> nhỏ nhất. ∎</p>
+<p><b>Hệ quả cho truy vết:</b> ở mỗi bước, chọn <i>bất kỳ</i> ô cha nào đạt min đều cho seam tối ưu. Vì thế có thể có <b>nhiều</b> seam tối ưu cùng chi phí, và quy tắc tie-breaking quyết định seam nào được chọn. Đó là lý do quy tắc phải cố định.</p>
+
+<h3>22.3 Truy vết bằng mảng <code>parent</code></h3>
+<pre><code>// Trong DP: ghi lại hướng đã chọn (ưu tiên giữa, rồi trái, rồi phải — giống 10.3)
+int best = M[up + j], dir = 0;
+if (j &gt; 0     &amp;&amp; M[up + j - 1] &lt; best) { best = M[up + j - 1]; dir = -1; }
+if (j &lt; W - 1 &amp;&amp; M[up + j + 1] &lt; best) { best = M[up + j + 1]; dir = +1; }
+M[row + j] = energy[row + j] + best;
+parent[row + j] = (int8_t)dir;
+
+// Truy vết: không cần so sánh
+for (int i = H - 1; i &gt; 0; --i) seam[i - 1] = seam[i] + parent[i * stride + seam[i]];</code></pre>
+<p>Hai cách truy vết (tính lại argmin, hoặc dùng <code>parent</code>) phải cho <b>cùng</b> seam nếu cùng quy tắc tie-breaking. Đây là một bài test hay. <code>parent</code> là <b>bắt buộc</b> với forward energy (chương 26).</p>
+
+<h3>22.4 Cập nhật năng lượng cục bộ sau khi xóa seam</h3>
+<p>Tính lại năng lượng toàn ảnh mỗi vòng tốn O(<i>H</i>·<i>W</i>). Nhưng sau khi xóa seam, đa số pixel có <b>cùng hàng xóm</b> như trước, nên năng lượng của chúng không đổi (chỉ dịch trái). Pixel nào thay đổi? Với sai phân trung tâm, gọi <i>s</i><sub><i>i</i></sub> là cột seam ở hàng <i>i</i> (tọa độ trước khi xóa):</p>
+<ul>
+  <li><b>Hàng xóm ngang</b> thay đổi chỉ ở hai pixel sát seam: cột mới <i>s</i><sub><i>i</i></sub>−1 và <i>s</i><sub><i>i</i></sub>.</li>
+  <li><b>Hàng xóm dọc</b>: pixel ở cột mới <i>j</i> của hàng <i>i</i> nguyên là cột <i>j</i> (nếu <i>j</i> &lt; <i>s</i><sub><i>i</i></sub>) hoặc <i>j</i>+1. Hàng trên cũng dịch theo <i>s</i><sub><i>i</i>−1</sub>. Nếu <i>j</i> nằm cùng phía với cả hai seam thì hàng xóm trên không đổi. Chỉ các <i>j</i> nằm <b>giữa</b> <i>s</i><sub><i>i</i>−1</sub> và <i>s</i><sub><i>i</i></sub> mới thay đổi. Tương tự với hàng dưới.</li>
+</ul>
+<p>Kết luận an toàn (hơi dư): ở hàng <i>i</i>, chỉ cần tính lại các cột mới trong khoảng</p>
+<div class="eq">[ min(<i>s</i><sub><i>i</i>−1</sub>, <i>s</i><sub><i>i</i></sub>, <i>s</i><sub><i>i</i>+1</sub>) − 1 , &nbsp; max(<i>s</i><sub><i>i</i>−1</sub>, <i>s</i><sub><i>i</i></sub>, <i>s</i><sub><i>i</i>+1</sub>) ]</div>
+<p>(giới hạn trong [0, <i>W</i>−2], bỏ qua <i>s</i><sub><i>i</i>±1</sub> nếu hàng không tồn tại). Các pixel còn lại: xóa seam khỏi mảng <code>energy</code> giống như xóa khỏi ảnh. Vì seam liên thông nên khoảng này thường chỉ rộng 2–4 pixel. Năng lượng gần như miễn phí, và <b>tỉ trọng của DP trong tổng thời gian tăng lên</b>. Với Sobel 3×3 (dùng cả hàng xóm chéo), mở rộng khoảng thêm 1 mỗi bên.</p>
+<div class="box warn"><span class="lbl">Bắt buộc kiểm chứng</span>
+<p>Đây là thay đổi thuật toán (tối ưu). Phải có test so sánh: sau mỗi vòng, <code>energy</code> cập nhật cục bộ == <code>energy</code> tính lại toàn bộ, từng phần tử. Lưu ý với Amdahl: khi năng lượng gần như biến mất, phần còn lại (DP + truy vết) quyết định speedup.</p>
+</div>
+
+<h3>22.5 Chèn seam (phóng to): ánh xạ về tọa độ gốc</h3>
+<p>Thuật toán 4.3 cần <i>k</i> seam đầu tiên <b>theo tọa độ ảnh gốc</b>. Nhưng seam thứ 2 được tìm trên ảnh đã hẹp đi 1 cột, nên cột của nó lệch so với ảnh gốc. Cách chuẩn: giữ một mảng <code>origCol</code> (<i>H</i> × <i>W</i>) ghi "pixel này vốn ở cột nào của ảnh gốc", và xóa seam khỏi nó giống như xóa khỏi ảnh.</p>
+<pre><code>// 1) Khởi tạo: origCol[i][j] = j
+// 2) Lặp k lần trên BẢN SAO ảnh: tìm seam, ghi lại cột gốc rồi xóa seam
+for (int t = 0; t &lt; k; ++t) {
+    findSeam(...);                                    // trên ảnh tạm
+    for (int i = 0; i &lt; H; ++i) removed[i].push_back(origCol[i*stride + seam[i]]);
+    removeSeam(tmpImage, origCol, ...);              // xóa cả trong origCol
+}
+// 3) Mỗi hàng của ảnh GỐC: sắp xếp removed[i], duyệt các pixel từ trái sang phải;
+//    sau khi chép pixel cột c, nếu c thuộc removed[i] thì chèn thêm một pixel mới
+//    = trung bình của pixel c và hàng xóm phải (c+1, hoặc c nếu ở biên).
+//    Hàng mới có W + k pixel.</code></pre>
+<p>Vì mỗi pixel gốc chỉ bị xóa một lần, các giá trị trong <code>removed[i]</code> không trùng nhau. Mỗi hàng chèn đúng <i>k</i> pixel, nên ảnh vẫn là hình chữ nhật. Các hàng độc lập nên bước 3 song song được bằng <code>parallel for</code>. Paper lấy trung bình với cả hai hàng xóm trái và phải; có nhiều biến thể, chọn một và ghi vào WORKLOG.</p>
+</section>
+
+<!-- ======================= PHẦN VI ======================= -->
+<h2 class="part-title">Phần VI · Song song hóa chuyên sâu</h2>
+
+<section id="c23">
+<h2 class="chap">Chương 23. Mô hình work–span &amp; giới hạn lý thuyết</h2>
+<h3>23.1 Work và span</h3>
+<div class="box def"><span class="lbl">Định nghĩa</span>
+<p><b>Work</b> <i>T</i><sub>1</sub>: tổng số phép tính, bằng thời gian chạy trên 1 bộ xử lý. <b>Span</b> <i>T</i><sub>∞</sub>: độ dài chuỗi phụ thuộc dài nhất (critical path), bằng thời gian nếu có vô hạn bộ xử lý. <b>Parallelism</b> = <i>T</i><sub>1</sub> / <i>T</i><sub>∞</sub>: số bộ xử lý tối đa còn có ích.</p>
+</div>
+<div class="eq"><i>T</i><sub><i>p</i></sub> ≥ max( <i>T</i><sub>1</sub>/<i>p</i>, &nbsp;<i>T</i><sub>∞</sub> ) &nbsp;&nbsp;&nbsp;&nbsp; (Brent) &nbsp; <i>T</i><sub><i>p</i></sub> ≤ <i>T</i><sub>1</sub>/<i>p</i> + <i>T</i><sub>∞</sub></div>
+<h3>23.2 Áp dụng cho Seam Carving (một seam)</h3>
+<div class="tw"><table>
+<tr><th>Bước</th><th>Work</th><th>Span</th><th>Giải thích span</th></tr>
+<tr><td>Năng lượng</td><td>Θ(<i>HW</i>)</td><td>Θ(1)</td><td>Mọi pixel độc lập</td></tr>
+<tr><td>DP</td><td>Θ(<i>HW</i>)</td><td>Θ(<i>H</i>)</td><td>Chuỗi hàng 0 → 1 → … → <i>H</i>−1</td></tr>
+<tr><td>Min hàng cuối</td><td>Θ(<i>W</i>)</td><td>Θ(log <i>W</i>)</td><td>Gộp kiểu cây</td></tr>
+<tr><td>Truy vết</td><td>Θ(<i>H</i>)</td><td>Θ(<i>H</i>)</td><td>Hoàn toàn tuần tự</td></tr>
+<tr><td>Xóa seam</td><td>Θ(<i>HW</i>)</td><td>Θ(<i>W</i>)</td><td>Dịch trong một hàng là tuần tự (hoặc Θ(1) nếu chép sang buffer mới)</td></tr>
+<tr><td><b>Tổng</b></td><td>Θ(<i>HW</i>)</td><td>Θ(<i>H</i> + <i>W</i>)</td><td></td></tr>
+</table></div>
+<p>Với <i>k</i> seam (phải tuần tự): work Θ(<i>kHW</i>), span Θ(<i>k</i>(<i>H</i>+<i>W</i>)). Parallelism ≈ <i>HW</i>/(<i>H</i>+<i>W</i>). Ví dụ 1920×1080: 2 073 600 / 3000 ≈ <b>691</b>. Về lý thuyết dư sức cho 8–16 thread. Vậy nếu speedup thực tế thấp, nguyên nhân <b>không phải</b> thiếu song song, mà là (1) <b>overhead đồng bộ</b> (khoảng <i>k</i>·<i>H</i> barrier), (2) <b>băng thông bộ nhớ</b>, (3) phần tuần tự (truy vết). Đây là lập luận rất mạnh cho báo cáo.</p>
+<h3>23.3 Định luật Gustafson</h3>
+<p>Amdahl giữ <b>kích thước bài toán cố định</b> (strong scaling). Gustafson hỏi ngược lại: nếu tăng kích thước bài toán theo số thread (weak scaling) thì sao? Với α là tỉ lệ tuần tự đo trên <i>p</i> thread:</p>
+<div class="eq"><i>S</i><sub>Gustafson</sub>(<i>p</i>) = <i>p</i> − α(<i>p</i> − 1)</div>
+<p>Với Seam Carving, khi tăng <i>W</i> thì phần song song (Θ(<i>HW</i>)) tăng nhanh hơn phần truy vết (Θ(<i>H</i>)). Vì vậy <b>ảnh càng rộng, speedup càng tốt</b>. Đây là giả thuyết em nên kiểm chứng bằng đo đạc ở M4.</p>
+<h3>23.4 Giới hạn băng thông bộ nhớ</h3>
+<p>Mỗi ô DP làm rất ít phép tính (1 min của 3 số, 1 cộng) nhưng phải đọc <code>energy</code> và ghi <code>M</code>: cỡ 8 byte cho vài phép tính. Những vòng lặp như vậy gọi là <b>memory-bound</b>: tốc độ bị chặn bởi băng thông RAM chứ không phải số core. Khi nhiều thread cùng đọc ghi, băng thông chung bão hòa và speedup "đi ngang". Các biện pháp: dùng kiểu nhỏ hơn (<code>uint8_t</code> cho gray, <code>uint16_t</code> cho energy), gộp vòng lặp, giữ dữ liệu trong cache. Mảng <code>int</code> của ảnh 1080p ≈ 8.3 MB; so với dung lượng cache L2/L3 của CPU <b>của em</b> (tra bằng CPU-Z hoặc Task Manager) để dự đoán.</p>
+</section>
+
+<section id="c24">
+<h2 class="chap">Chương 24. OpenMP nâng cao cho Seam Carving</h2>
+<h3>24.1 Một vùng song song duy nhất cho cả vòng lặp seam</h3>
+<p>Mỗi <code>#pragma omp parallel</code> có chi phí khởi động/đánh thức nhóm thread. Thay vì mở vùng mới cho mỗi bước của mỗi seam, có thể mở <b>một vùng duy nhất</b> và dùng <code>omp for</code> + <code>omp single</code> bên trong:</p>
+<pre><code>int W = W0;                                   // shared: mọi thread đọc
+#pragma omp parallel
+{
+    while (W &gt; targetW) {                     // mọi thread cùng thấy W giống nhau (xem 24.2)
+        #pragma omp for schedule(static)      // (1) năng lượng — barrier ngầm cuối
+        for (int i = 0; i &lt; H; ++i) computeEnergyRow(i, W);
+
+        #pragma omp for schedule(static)      // (2a) hàng 0 của M
+        for (int j = 0; j &lt; W; ++j) M[j] = energy[j];
+        for (int i = 1; i &lt; H; ++i) {         // (2b) DP: i private, mọi thread đi cùng nhịp
+            #pragma omp for schedule(static)  //      barrier ngầm cuối mỗi hàng
+            for (int j = 0; j &lt; W; ++j) dpCell(i, j, W);
+        }
+
+        #pragma omp single                    // (3) min + truy vết: một thread, các thread khác đợi
+        findSeamFromM(W);
+
+        #pragma omp for schedule(static)      // (4) xóa seam khỏi mọi mảng
+        for (int i = 0; i &lt; H; ++i) removeSeamRow(i, W);
+
+        #pragma omp single                    // (5) cập nhật W ở MỘT chỗ; barrier ngầm cuối single
+        W -= 1;
+    }
+}</code></pre>
+<p><b>Thread phối hợp thế nào:</b> tất cả thread cùng chạy vòng <code>while</code> và cùng vòng <code>for i</code> của DP, như những người lính đi đều bước. Mỗi <code>omp for</code> chia công việc rồi <b>đợi nhau</b> ở cuối. <code>single</code> để một thread làm phần tuần tự trong khi các thread khác chờ ở barrier ngầm cuối <code>single</code>.</p>
+<h3>24.2 Mô hình bộ nhớ: vì sao mọi thread "thấy" W mới?</h3>
+<p>Thread có thể giữ bản sao biến trong thanh ghi hoặc cache. OpenMP đảm bảo tại mỗi <b>barrier</b> (kể cả barrier ngầm cuối <code>for</code> và <code>single</code>) có một <b>flush</b>: mọi ghi trước đó được đẩy ra bộ nhớ chung, và đọc sau đó thấy giá trị mới. Vì <code>W -= 1</code> nằm trong <code>single</code> (có barrier ngầm cuối), mọi thread kiểm tra điều kiện <code>while</code> đều thấy cùng một <code>W</code> và thoát vòng <b>cùng lúc</b>. Nếu thêm <code>nowait</code> vào <code>single</code> này thì một thread có thể đọc <code>W</code> cũ, chạy thêm một vòng và gặp barrier mà các thread khác không bao giờ tới: <b>deadlock</b> hoặc kết quả sai.</p>
+<div class="box warn"><span class="lbl">Quy tắc vàng</span>
+<p>Mọi thread trong nhóm phải gặp <b>cùng dãy</b> các <code>omp for</code>/<code>single</code>/<code>barrier</code> theo cùng thứ tự. Mọi điều kiện rẽ nhánh hay lặp bao quanh chúng phải cho cùng kết quả ở mọi thread.</p>
+</div>
+<h3>24.3 Tìm min (argmin) không cần <code>reduction(min)</code> (chạy được với OpenMP 2.0)</h3>
+<pre><code>int bestV = INT_MAX, bestJ = -1;               // shared
+const int* last = M + (size_t)(H - 1) * stride;
+#pragma omp parallel
+{
+    int lv = INT_MAX, lj = -1;                  // private: min cục bộ
+    #pragma omp for schedule(static) nowait
+    for (int j = 0; j &lt; W; ++j)
+        if (last[j] &lt; lv) { lv = last[j]; lj = j; }   // trong khúc của mình: lấy j nhỏ nhất
+    #pragma omp critical
+    {
+        if (lj != -1 &amp;&amp; (lv &lt; bestV || (lv == bestV &amp;&amp; lj &lt; bestJ))) { bestV = lv; bestJ = lj; }
+    }
+}</code></pre>
+<p><b>Vì sao giống hệt tuần tự:</b> bản tuần tự quét trái sang phải với <code>&lt;</code> chặt, nên chọn <b>j nhỏ nhất</b> đạt min. Bản song song gộp theo thứ tự (giá trị, chỉ số), nên cũng cho j nhỏ nhất đạt min, bất kể thread nào vào <code>critical</code> trước. <code>nowait</code> ở đây an toàn vì <code>critical</code> chỉ dùng biến private đã tính xong. Với <i>W</i> vài nghìn, bước này rất nhỏ; đo xem có đáng song song không.</p>
+<h3>24.4 Các mệnh đề hữu ích khác</h3>
+<div class="tw"><table>
+<tr><th>Mệnh đề</th><th>Dùng khi</th></tr>
+<tr><td><code>if(W &gt; 256)</code></td><td>Chỉ song song khi đủ việc; ảnh hẹp chạy tuần tự để tránh overhead. Có từ OpenMP 2.0.</td></tr>
+<tr><td><code>schedule(static)</code></td><td>Mỗi vòng lặp tốn như nhau (đúng với mọi bước ở đây). <code>dynamic</code> chỉ thêm overhead.</td></tr>
+<tr><td><code>default(none)</code></td><td>Bắt buộc khai báo rõ shared/private cho mọi biến, nên trình biên dịch bắt lỗi chia sẻ nhầm.</td></tr>
+<tr><td><code>num_threads(p)</code></td><td>Đặt số thread cho riêng một vùng.</td></tr>
+</table></div>
+<h3>24.5 False sharing trong mảng theo thread</h3>
+<p>Nếu mỗi thread ghi kết quả cục bộ vào <code>partial[tid]</code> (mảng <code>int</code> liền nhau), 16 thread cùng chung một cache line 64 byte và "giành giật" nhau. Sửa bằng cách <b>đệm (padding)</b>:</p>
+<pre><code>struct alignas(64) PaddedMin { int v; int j; };   // mỗi phần tử chiếm trọn 1 cache line
+std::vector&lt;PaddedMin&gt; partial(omp_get_max_threads());</code></pre>
+<p>Với cách viết ở 24.3 (biến cục bộ trong thanh ghi + <code>critical</code>) thì không có vấn đề này.</p>
+<h3>24.6 Vector hóa (SIMD) vòng lặp DP</h3>
+<p>Ngoài nhiều core, mỗi core còn có lệnh SIMD xử lý 8–16 số cùng lúc. Trình biên dịch tự vector hóa tốt khi vòng lặp <b>không có nhánh</b>. Mẹo: tách hai cột biên ra xử lý riêng, để vòng giữa <code>j = 1..W-2</code> chỉ là <code>min(min(a,b),c) + e</code>:</p>
+<pre><code>M[row + 0] = energy[row + 0] + std::min(M[up + 0], M[up + 1]);            // biên trái (giả sử W ≥ 2)
+for (int j = 1; j &lt; W - 1; ++j)                                           // không nhánh → dễ vector hóa
+    M[row + j] = energy[row + j] + std::min(std::min(M[up + j - 1], M[up + j]), M[up + j + 1]);
+M[row + W - 1] = energy[row + W - 1] + std::min(M[up + W - 2], M[up + W - 1]); // biên phải</code></pre>
+<p>Kết quả <b>giữ nguyên</b> giá trị <i>M</i>. Ghi chú về tie-breaking: biến thể này chỉ tính <b>giá trị</b> min; nếu truy vết bằng cách tính lại argmin (10.3) thì seam vẫn y hệt. Nếu dùng <code>parent</code> thì phải giữ thứ tự so sánh. Dùng cờ <code>/Qvec-report:2</code> (MSVC) hoặc <code>-fopt-info-vec</code> (GCC) để xem vòng lặp có được vector hóa không.</p>
+</section>
+
+<section id="c25">
+<h2 class="chap">Chương 25. Giảm barrier: phân rã hình thang (trapezoid tiling)</h2>
+<p>Chương 17 chỉ ra điểm yếu: DP cần một barrier <b>mỗi hàng</b>. Chương này trình bày một kỹ thuật giảm số barrier, để dành cho M5. Kết quả giống <b>hệt</b> DP theo hàng, nhưng phải kiểm chứng bằng test.</p>
+<h3>25.1 Nón phụ thuộc (dependency cone)</h3>
+<p>Ô (<i>i</i>, <i>j</i>) phụ thuộc 3 ô ở hàng <i>i</i>−1, các ô này lại phụ thuộc 5 ô ở hàng <i>i</i>−2… Tổng quát, ô (<i>i</i>, <i>j</i>) chỉ phụ thuộc các ô ở hàng <i>i</i>−<i>t</i> trong cột [<i>j</i>−<i>t</i>, <i>j</i>+<i>t</i>]: một <b>tam giác ngược</b> phía trên nó. Lật lại: nếu một thread đã có hàng <i>r</i><sub>0</sub> trong khối cột [<i>b</i>, <i>b</i>+<i>B</i>), nó có thể <b>tự</b> tính hàng <i>r</i><sub>0</sub>+<i>t</i> ở cột [<i>b</i>+<i>t</i>, <i>b</i>+<i>B</i>−1−<i>t</i>] mà không cần ai khác. Vùng đó thu hẹp dần thành <b>hình thang</b>.</p>
+<h3>25.2 Thuật toán hai pha cho một dải <i>R</i> hàng</h3>
+<p>Chia chiều rộng thành các khối rộng <i>B</i> (mỗi thread một khối), xử lý từng dải <i>R</i> hàng (cần <i>B</i> ≥ 2<i>R</i>):</p>
+<ol>
+  <li><b>Pha 1</b> (song song, không đồng bộ giữa các hàng): thread <i>k</i> tính hàng <i>t</i> = 1..<i>R</i> của dải ở cột [<i>b</i><sub><i>k</i></sub>+<i>t</i>, <i>b</i><sub><i>k</i>+1</sub>−1−<i>t</i>]. Riêng khối đầu tiên không co ở mép trái ảnh và khối cuối không co ở mép phải, vì ngoài ảnh không có phụ thuộc.</li>
+  <li><b>Barrier.</b></li>
+  <li><b>Pha 2</b> (song song): mỗi ranh giới <i>b</i> giữa hai khối còn một <b>tam giác xuôi</b> chưa tính: hàng <i>t</i>, cột [<i>b</i>−<i>t</i>, <i>b</i>+<i>t</i>−1]. Mỗi tam giác do một thread tính từ trên xuống. Các tam giác độc lập với nhau.</li>
+  <li><b>Barrier</b>, rồi sang dải tiếp theo.</li>
+</ol>
+<p><b>Kiểm tra đúng:</b> ô (<i>t</i>, <i>c</i>) trong tam giác pha 2 cần các cột <i>c</i>−1..<i>c</i>+1 ở hàng <i>t</i>−1, nằm trong [<i>b</i>−<i>t</i>−1, <i>b</i>+<i>t</i>]. Đoạn giữa [<i>b</i>−<i>t</i>+1, <i>b</i>+<i>t</i>−2] thuộc chính tam giác ở hàng <i>t</i>−1 (đã tính trước, cùng thread). Đoạn trái [<i>b</i>−<i>t</i>−1, <i>b</i>−<i>t</i>] thuộc pha 1 của khối trái (khối trái ở hàng <i>t</i>−1 phủ tới cột <i>b</i>−1−(<i>t</i>−1) = <i>b</i>−<i>t</i>). Đoạn phải [<i>b</i>+<i>t</i>−1, <i>b</i>+<i>t</i>] thuộc pha 1 của khối phải (bắt đầu từ <i>b</i>+<i>t</i>−1). ✓ Pha 1 và pha 2 phủ kín mỗi hàng không chồng lấn: khối trái kết thúc ở <i>b</i>−1−<i>t</i>, tam giác bắt đầu ở <i>b</i>−<i>t</i>, kết thúc ở <i>b</i>+<i>t</i>−1, khối phải bắt đầu ở <i>b</i>+<i>t</i>. ✓</p>
+<p><b>Lợi ích:</b> mỗi dải <i>R</i> hàng chỉ còn <b>2 barrier thay vì <i>R</i></b>; tổng ≈ 2<i>H</i>/<i>R</i> barrier mỗi seam. <b>Cái giá:</b> code phức tạp hơn nhiều; pha 2 có ít việc (tam giác nhỏ) nên cân bằng tải kém hơn nếu <i>R</i> lớn; cần <i>B</i> ≥ 2<i>R</i>, nghĩa là <i>R</i> ≤ <i>W</i>/(2<i>p</i>). Vì mỗi ô vẫn tính đúng công thức với đúng các ô cha, giá trị <i>M</i> giống hệt bản theo hàng.</p>
+
+<div class="demo" id="tzdemo">
+<h4>Demo 4 · Phân rã hình thang</h4>
+<p class="small">Dải <i>R</i> hàng của một ảnh rộng 30 cột, 3 thread (khối <i>B</i> = 10). Hàng xám trên cùng là hàng đã tính xong của dải trước. Ô <b>đặc</b> = pha 1 (hình thang), ô <b>sọc</b> = pha 2 (tam giác ở ranh giới). Màu = thread phụ trách.</p>
+<div class="ctrl"><label for="tzR">Số hàng mỗi dải R =</label><input type="range" id="tzR" min="1" max="5" value="4"><span id="tzRv" class="mono"></span></div>
+<div class="tw"><table class="grid" id="tzTable" style="min-width:auto;width:auto;font-size:11px"></table></div>
+<div class="status" id="tzInfo"></div>
+</div>
+</section>
+
+<section id="c26">
+<h2 class="chap">Chương 26. Forward energy (Rubinstein, Shamir, Avidan 2008)</h2>
+<h3>26.1 Vấn đề của backward energy</h3>
+<p>Paper 2007 chọn seam có năng lượng <b>bị xóa</b> nhỏ nhất. Nhưng khi xóa pixel, hai pixel trước đó không đứng cạnh nhau giờ <b>bị ghép lại</b>, và có thể tạo ra cạnh mới rất gắt (artifact răng cưa). Backward energy không "thấy" chi phí đó. Forward energy đo chính <b>năng lượng mới được thêm vào ảnh</b> sau khi xóa.</p>
+<h3>26.2 Ba chi phí chuyển</h3>
+<p>Xóa pixel (<i>i</i>, <i>j</i>) làm <i>I</i>(<i>i</i>, <i>j</i>−1) và <i>I</i>(<i>i</i>, <i>j</i>+1) thành hàng xóm. Ngoài ra, tùy seam đến từ trên-trái, trên, hay trên-phải mà có thêm một cặp hàng xóm dọc mới:</p>
+<div class="eq">
+<i>C</i><sub>U</sub>(<i>i</i>, <i>j</i>) = | <i>I</i>(<i>i</i>, <i>j</i>+1) − <i>I</i>(<i>i</i>, <i>j</i>−1) |<br>
+<i>C</i><sub>L</sub>(<i>i</i>, <i>j</i>) = <i>C</i><sub>U</sub>(<i>i</i>, <i>j</i>) + | <i>I</i>(<i>i</i>−1, <i>j</i>) − <i>I</i>(<i>i</i>, <i>j</i>−1) |<br>
+<i>C</i><sub>R</sub>(<i>i</i>, <i>j</i>) = <i>C</i><sub>U</sub>(<i>i</i>, <i>j</i>) + | <i>I</i>(<i>i</i>−1, <i>j</i>) − <i>I</i>(<i>i</i>, <i>j</i>+1) |
+</div>
+<div class="eq"><i>M</i>(<i>i</i>, <i>j</i>) = <i>P</i>(<i>i</i>, <i>j</i>) + min{ <i>M</i>(<i>i</i>−1, <i>j</i>−1) + <i>C</i><sub>L</sub>(<i>i</i>, <i>j</i>), &nbsp; <i>M</i>(<i>i</i>−1, <i>j</i>) + <i>C</i><sub>U</sub>(<i>i</i>, <i>j</i>), &nbsp; <i>M</i>(<i>i</i>−1, <i>j</i>+1) + <i>C</i><sub>R</sub>(<i>i</i>, <i>j</i>) }</div>
+<p><i>P</i>(<i>i</i>, <i>j</i>) là năng lượng bổ sung tùy chọn (ví dụ vùng bảo vệ, xóa vật thể); mặc định 0. <b>Trực giác cho <i>C</i><sub>L</sub>:</b> nếu seam đi từ (<i>i</i>−1, <i>j</i>−1) xuống (<i>i</i>, <i>j</i>), sau khi xóa thì pixel (<i>i</i>−1, <i>j</i>) ở hàng trên sẽ nằm ngay trên pixel (<i>i</i>, <i>j</i>−1) ở hàng dưới. Đó là cặp hàng xóm dọc mới.</p>
+<h3>26.3 Hệ quả khi cài đặt</h3>
+<ul>
+  <li><b>Truy vết phải dùng <code>parent</code></b> (hoặc tính lại <i>M</i>(<i>i</i>−1, <i>j</i>′) + <i>C</i>): chi phí chuyển khác nhau theo hướng, nên "đi lên ô <i>M</i> nhỏ nhất" <b>không còn đúng</b>.</li>
+  <li><b>Không cần mảng energy riêng:</b> chi phí tính trực tiếp từ <code>gray</code> trong DP. Bước 1 biến mất, DP nặng hơn một chút (thêm vài phép trừ, trị tuyệt đối).</li>
+  <li><b>Tính chất song song y hệt:</b> vẫn chỉ phụ thuộc hàng trên, nên vẫn song song trong hàng, barrier mỗi hàng, và vẫn áp dụng được hình thang (chương 25).</li>
+  <li>Đây là <b>thuật toán khác</b> paper gốc: nếu làm, hãy coi là phần mở rộng, có baseline tuần tự riêng.</li>
+</ul>
+<p>Thử ngay ở <a href="#scdemo">Demo 2</a>: bật ô "forward energy" và so sánh vùng biên vật thể.</p>
+</section>
+
+<!-- ======================= PHẦN VII ======================= -->
+<h2 class="part-title">Phần VII · Kiểm thử, đo đạc, báo cáo</h2>
+
+<section id="c27">
+<h2 class="chap">Chương 27. Kiểm thử tính đúng</h2>
+<h3>27.1 Ba tầng kiểm thử</h3>
+<ol>
+  <li><b>Bất biến của mỗi seam:</b>
+<pre><code>bool validSeam(const std::vector&lt;int&gt;&amp; s, int H, int W) {
+    for (int i = 0; i &lt; H; ++i) {
+        if (s[i] &lt; 0 || s[i] &gt;= W) return false;                 // trong ảnh
+        if (i &gt; 0 &amp;&amp; std::abs(s[i] - s[i-1]) &gt; 1) return false;  // liên thông
+    }
+    return true;
+}
+// và: tổng e dọc seam == min hàng cuối của M  (seam tối ưu thật sự)</code></pre></li>
+  <li><b>Oracle vét cạn</b> cho ảnh tí hon (ví dụ <i>H</i> ≤ 7, <i>W</i> ≤ 6): duyệt đệ quy <b>mọi</b> seam, so min với kết quả DP. Đây là cách duy nhất kiểm chứng DP độc lập với chính nó.</li>
+  <li><b>Tương đương tuần tự ↔ song song:</b> chạy cả hai trên cùng ảnh; sau <b>mỗi</b> vòng so sánh mảng <code>seam</code> (in ra vòng và hàng khác đầu tiên nếu lệch); cuối cùng so sánh ảnh kết quả <b>từng byte</b> (<code>std::memcmp</code> hoặc <code>cv::norm(a, b, cv::NORM_INF) == 0</code>).</li>
+</ol>
+<h3>27.2 Ma trận test</h3>
+<div class="tw"><table>
+<tr><th>Ảnh</th><th>Mục đích</th></tr>
+<tr><td>Ảnh đồng màu</td><td>Mọi năng lượng = 0, toàn tie: kiểm tra quy tắc tie-breaking (dự đoán được seam chính xác)</td></tr>
+<tr><td>Sọc dọc sáng giữa nền tối</td><td>Seam phải né sọc</td></tr>
+<tr><td>Ảnh ngẫu nhiên có seed cố định</td><td>Lặp lại được; bắt lỗi chỉ số</td></tr>
+<tr><td><i>W</i> = 1, 2, 3; <i>H</i> = 1</td><td>Trường hợp biên, rất hay crash</td></tr>
+<tr><td>Ảnh thật nhiều kích thước</td><td>Kiểm thử tích hợp</td></tr>
+<tr><td>Số thread 1, 2, 3, 4, 8, 7 (lẻ), nhiều hơn số cột</td><td>Chia khối không đều, thread không có việc</td></tr>
+</table></div>
+<h3>27.3 Săn race condition</h3>
+<ul>
+  <li><b>Lặp nhiều lần:</b> race thường "lúc có lúc không". Chạy test tương đương 50–100 lần với nhiều số thread; một lần lệch là có bug.</li>
+  <li><b>Công cụ:</b> MSVC không có ThreadSanitizer cho OpenMP. Trên Linux/WSL, Clang có <code>-fopenmp -fsanitize=thread</code> cùng công cụ <b>Archer</b> (LLVM) hỗ trợ OpenMP; GCC với libgomp có thể báo động nhầm.</li>
+  <li><b>Đọc code theo checklist:</b> mỗi biến trong vùng song song là shared hay private? Ai ghi? Ai đọc? Giữa ghi và đọc có barrier không?</li>
+</ul>
+</section>
+
+<section id="c28">
+<h2 class="chap">Chương 28. Benchmark đúng phương pháp</h2>
+<h3>28.1 Quy trình</h3>
+<ol>
+  <li>Build <b>Release</b>, ghi lại compiler, phiên bản, cờ (<code>/O2</code>, <code>-O3</code>…), <code>_OPENMP</code>.</li>
+  <li><b>Không đo I/O</b>: <code>imread</code>/<code>imwrite</code> nằm ngoài vùng đo.</li>
+  <li><b>Warm-up</b> 1 lần (nạp cache, khởi tạo thread pool), không tính.</li>
+  <li>Mỗi cấu hình chạy ≥ 5 lần; báo cáo <b>trung vị</b> (median) kèm min/max hoặc độ lệch chuẩn.</li>
+  <li>Đo <b>riêng từng pha</b> (năng lượng, DP, truy vết, xóa) để biết phần nào chiếm thời gian. Đây là dữ liệu cho Amdahl.</li>
+  <li>Số thread: 1, 2, 4, …, số core vật lý, số luồng logic. Speedup tính so với <b>bản tuần tự</b> (trung thực nhất) và so với bản OpenMP 1 thread (cho thấy overhead).</li>
+  <li>Laptop: cắm sạc, chế độ hiệu năng cao, tắt app nặng; nhiệt độ làm CPU hạ xung (thermal throttling), nên chạy xen kẽ cấu hình chứ đừng chạy dồn một cấu hình liên tục.</li>
+</ol>
+<h3>28.2 Strong vs weak scaling</h3>
+<p><b>Strong scaling:</b> cố định ảnh và số seam, tăng thread, kiểm tra Amdahl. <b>Weak scaling:</b> tăng chiều rộng ảnh tỉ lệ với số thread, kiểm tra Gustafson (chương 23.3). Làm cả hai sẽ cho báo cáo sâu.</p>
+<h3>28.3 Hyper-threading</h3>
+<p>CPU 4 core / 8 luồng chỉ có 4 bộ tính toán thật; 2 luồng logic chia nhau một core. Với vòng lặp memory-bound, speedup sau số core vật lý thường tăng rất ít hoặc giảm. Đó là kết quả thật, hãy giải thích chứ đừng giấu.</p>
+<h3>28.4 Định dạng kết quả &amp; vẽ đồ thị</h3>
+<pre><code># results.csv (mỗi dòng một lần chạy)
+# image,width,height,seams,version,threads,rep,energy_s,dp_s,backtrack_s,remove_s,total_s</code></pre>
+<pre><code>import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("results.csv")
+med = df.groupby(["image", "version", "threads"])["total_s"].median().reset_index()
+
+for img, g in med[med.version == "omp"].groupby("image"):
+    t_seq = med[(med.image == img) &amp; (med.version == "seq")]["total_s"].iloc[0]
+    plt.plot(g.threads, t_seq / g.total_s, marker="o", label=img)
+p = sorted(med.threads.unique())
+plt.plot(p, p, "k--", label="lý tưởng")
+plt.xlabel("Số thread"); plt.ylabel("Speedup so với bản tuần tự")
+plt.legend(); plt.grid(alpha=.3); plt.savefig("speedup.png", dpi=150)</code></pre>
+<h3>28.5 Bảng kết quả mẫu (để trống, chỉ điền số đo thật)</h3>
+<div class="tw"><table>
+<tr><th>Ảnh (W×H)</th><th>Seam xóa</th><th>Phiên bản</th><th>Thread</th><th>Median (s)</th><th>Speedup</th><th>Efficiency</th></tr>
+<tr><td>…</td><td>…</td><td>seq</td><td>1</td><td></td><td>1.00</td><td>—</td></tr>
+<tr><td>…</td><td>…</td><td>omp</td><td>…</td><td></td><td></td><td></td></tr>
+</table></div>
+<div class="box warn"><span class="lbl">Đạo đức đo đạc</span>
+<p>Không bao giờ điền số ước lượng vào bảng đo. Kết quả xấu (speedup thấp) <b>có giá trị</b> nếu em giải thích được bằng work–span, barrier và băng thông. Giảng viên chấm cao sự hiểu biết, không chấm cao con số đẹp.</p>
+</div>
+</section>
+
+<section id="c29">
+<h2 class="chap">Chương 29. Lỗi thường gặp &amp; cách debug</h2>
+<div class="tw"><table>
+<tr><th>Triệu chứng</th><th>Nguyên nhân hay gặp</th><th>Cách sửa / phát hiện</th></tr>
+<tr><td>Crash ở cột cuối, ảnh hẹp</td><td>Đọc <code>j+1</code> khi <code>j = W-1</code>; quên xử lý <i>W</i> = 1</td><td>Clamp chỉ số; test <i>W</i> = 1, 2</td></tr>
+<tr><td>Seam lệch dần, ảnh vỡ sau vài chục seam</td><td>Một mảng chưa xóa seam; dùng <i>W</i> cũ; nhầm <code>W</code> với <code>stride</code></td><td>Bất biến 19.3; assert <code>validSeam</code> mỗi vòng</td></tr>
+<tr><td>Song song ≠ tuần tự, lúc có lúc không</td><td>Race: thiếu barrier (<code>nowait</code>), biến dùng chung bị ghi</td><td>Chạy lặp nhiều lần; checklist 27.3</td></tr>
+<tr><td>Song song ≠ tuần tự, lệch cố định</td><td>Tie-breaking khác nhau; dùng <code>float</code></td><td>Một hàm DP-cell dùng chung; dùng <code>int</code></td></tr>
+<tr><td>Race ở vòng lặp lồng nhau</td><td><code>int j;</code> khai báo <b>ngoài</b> vùng song song thì <b>shared</b>; chỉ biến lặp của vòng <code>omp for</code> mới tự private</td><td>Khai báo biến trong vòng lặp: <code>for (int j = ...)</code></td></tr>
+<tr><td>Ảnh đầu vào "tự thay đổi"</td><td><code>cv::Mat</code> chép nông</td><td><code>clone()</code></td></tr>
+<tr><td>Speedup = 1</td><td>OpenMP chưa bật</td><td>In <code>_OPENMP</code> (21.3)</td></tr>
+<tr><td>Speedup &lt; 1 với ảnh nhỏ</td><td>Overhead barrier/fork lớn hơn việc</td><td>Mệnh đề <code>if</code>; vùng parallel duy nhất (24.1)</td></tr>
+<tr><td>Số đo dao động mạnh</td><td>Bản Debug, máy chạy nền, hạ xung nhiệt, OpenCV dùng thread riêng</td><td>Quy trình 28.1; <code>cv::setNumThreads(1)</code></td></tr>
+<tr><td>Treo (deadlock)</td><td>Thread không cùng gặp barrier (barrier trong <code>if</code> khác nhau giữa các thread)</td><td>Quy tắc vàng 24.2</td></tr>
+<tr><td>In log lộn xộn, chậm</td><td><code>printf</code> trong vùng song song</td><td>Ghi log ngoài vùng song song, hoặc trong <code>single</code></td></tr>
+</table></div>
+</section>
+
+<section id="c30">
+<h2 class="chap">Chương 30. Ôn tập: bảng tóm tắt &amp; câu hỏi bảo vệ</h2>
+<h3>30.1 Bảng tóm tắt một trang</h3>
+<div class="tw"><table>
+<tr><th>Chủ đề</th><th>Cần nhớ</th></tr>
+<tr><td>Năng lượng</td><td><i>e</i><sub>1</sub> = |∂<sub>x</sub><i>I</i>| + |∂<sub>y</sub><i>I</i>|; song song hoàn toàn</td></tr>
+<tr><td>Seam</td><td>1 pixel/hàng, |<i>x</i>(<i>i</i>) − <i>x</i>(<i>i</i>−1)| ≤ 1</td></tr>
+<tr><td>DP</td><td><i>M</i>(<i>i</i>,<i>j</i>) = <i>e</i>(<i>i</i>,<i>j</i>) + min(3 ô trên); song song trong hàng, barrier mỗi hàng</td></tr>
+<tr><td>Truy vết</td><td>Từ argmin hàng cuối đi lên; tuần tự, O(<i>H</i>)</td></tr>
+<tr><td>Xóa</td><td>Dịch trái phần sau seam; song song theo hàng</td></tr>
+<tr><td>Độ phức tạp</td><td>Work Θ(<i>kHW</i>), span Θ(<i>k</i>(<i>H</i>+<i>W</i>))</td></tr>
+<tr><td>Amdahl / Gustafson</td><td>1/((1−<i>f</i>) + <i>f</i>/<i>p</i>) &nbsp;/&nbsp; <i>p</i> − α(<i>p</i>−1)</td></tr>
+<tr><td>Pragma chính</td><td><code>parallel</code>, <code>for schedule(static)</code>, <code>single</code>, <code>critical</code>, <code>if</code></td></tr>
+<tr><td>Đúng = giống hệt</td><td><code>int</code>, tie-breaking cố định, so sánh từng byte</td></tr>
+</table></div>
+<h3>30.2 Câu hỏi giảng viên hay hỏi khi bảo vệ</h3>
+<div class="box q"><span class="lbl">Tự luyện: trả lời trước khi mở đáp án</span>
+<details><summary>1. Vì sao không song song hóa giữa các seam?</summary><p>Seam <i>k</i> được tính trên ảnh đã xóa seam <i>k</i>−1 và năng lượng đã đổi. Tính nhiều seam cùng lúc là một thuật toán khác (xấp xỉ), không còn tương đương bản gốc (17.5).</p></details>
+<details><summary>2. Barrier trong DP ở đâu, bỏ đi thì sao?</summary><p>Cuối mỗi hàng (barrier ngầm của <code>omp for</code>). Bỏ đi thì thread có thể đọc <i>M</i> của hàng trước khi thread hàng xóm ghi xong, gây race và seam sai ngẫu nhiên (17.2).</p></details>
+<details><summary>3. Phần nào là phần tuần tự trong Amdahl của em?</summary><p>Truy vết (O(<i>H</i>)), tìm min (nếu không song song), cập nhật <i>W</i>, cộng overhead đồng bộ. Đo bằng thời gian từng pha (28.1).</p></details>
+<details><summary>4. Vì sao speedup không bằng số thread?</summary><p>Amdahl (phần tuần tự), overhead <i>k</i>·<i>H</i> barrier, băng thông bộ nhớ (memory-bound), hyper-threading. Parallelism lý thuyết ~<i>HW</i>/(<i>H</i>+<i>W</i>) lớn, nên giới hạn là overhead chứ không phải thuật toán (23.2).</p></details>
+<details><summary>5. Làm sao em chắc bản song song đúng?</summary><p>So sánh seam mỗi vòng và ảnh kết quả từng byte với bản tuần tự, trên ma trận test nhiều ảnh và số thread, lặp nhiều lần; DP được kiểm chứng bằng oracle vét cạn (27).</p></details>
+<details><summary>6. Tại sao chọn schedule(static)?</summary><p>Mọi vòng lặp có khối lượng như nhau; static chia một lần, overhead thấp nhất, mỗi thread làm một đoạn liên tục nên tốt cho cache.</p></details>
+<details><summary>7. Seam ngang em làm thế nào? Chậm hơn không?</summary><p>Chuyển vị ảnh rồi dùng code seam dọc (19.4). Nếu duyệt trực tiếp theo cột sẽ chậm do truy cập bộ nhớ nhảy cóc.</p></details>
+<details><summary>8. Có race nào trong bước xóa seam không?</summary><p>Không, nếu mỗi hàng do một thread xử lý và hàng không chồng vùng nhớ (stride cố định hoặc buffer mới). Có race nếu nén mảng tại chỗ với stride thay đổi (19.3).</p></details>
+<details><summary>9. Ảnh nhỏ thì sao?</summary><p>Overhead lớn hơn lợi ích, speedup có thể &lt; 1. Dùng mệnh đề <code>if</code>, hoặc báo cáo ngưỡng kích thước bắt đầu có lợi (đo thật).</p></details>
+<details><summary>10. Nếu có thêm thời gian, em tối ưu gì tiếp?</summary><p>Cập nhật năng lượng cục bộ (22.4), một vùng parallel duy nhất (24.1), phân rã hình thang giảm barrier (25), kiểu dữ liệu nhỏ giảm băng thông (23.4). Mỗi cái phải đo và kiểm chứng đúng.</p></details>
+</div>
+</section>
+
+<hr>
+<section id="thuat-ngu">
+<h2 class="chap">Bảng thuật ngữ</h2>
+<div class="tw"><table>
+<tr><th>Thuật ngữ</th><th>Giải thích</th></tr>
+<tr><td>Retargeting</td><td>Đổi kích thước / tỉ lệ ảnh cho màn hình đích</td></tr>
+<tr><td>Seam</td><td>Đường pixel liên thông 8 hướng, mỗi hàng (hoặc cột) đúng 1 pixel</td></tr>
+<tr><td>Energy (năng lượng)</td><td>Độ quan trọng của pixel, thường là độ lớn gradient</td></tr>
+<tr><td>Cumulative energy <i>M</i></td><td>Năng lượng nhỏ nhất của đường từ hàng 0 tới pixel đang xét</td></tr>
+<tr><td>Backtracking (truy vết)</td><td>Đi ngược bảng DP để khôi phục đường đi</td></tr>
+<tr><td>Gradient</td><td>Vector đạo hàm riêng, đo hướng và độ mạnh của thay đổi</td></tr>
+<tr><td>Kernel / Convolution</td><td>Ma trận nhỏ trượt trên ảnh / phép trượt-nhân-cộng</td></tr>
+<tr><td>Row-major</td><td>Lưu ma trận theo từng hàng liên tiếp</td></tr>
+<tr><td>Fork–join</td><td>Mô hình tách nhóm thread rồi hợp lại của OpenMP</td></tr>
+<tr><td>Barrier</td><td>Điểm mà mọi thread phải chờ nhau</td></tr>
+<tr><td>Race condition</td><td>Nhiều thread truy cập cùng dữ liệu, có ghi, không đồng bộ</td></tr>
+<tr><td>Reduction</td><td>Gộp kết quả cục bộ của các thread (sum, min, …)</td></tr>
+<tr><td>Speedup / Efficiency</td><td><i>T</i><sub>1</sub>/<i>T</i><sub>p</sub> và speedup chia số thread</td></tr>
+<tr><td>Amdahl's law</td><td>Speedup bị chặn bởi phần tuần tự</td></tr>
+<tr><td>False sharing</td><td>Các thread ghi biến khác nhau trên cùng cache line</td></tr>
+<tr><td>Work / Span</td><td>Tổng phép tính / độ dài chuỗi phụ thuộc dài nhất</td></tr>
+<tr><td>Stride</td><td>Khoảng cách (số phần tử) giữa đầu hai hàng liên tiếp trong bộ nhớ</td></tr>
+<tr><td>Memory-bound</td><td>Tốc độ bị chặn bởi băng thông bộ nhớ, không phải số phép tính</td></tr>
+<tr><td>Flush</td><td>Đồng bộ bộ nhớ: đảm bảo thread khác thấy giá trị vừa ghi (ngầm tại barrier)</td></tr>
+<tr><td>Deterministic</td><td>Cùng đầu vào luôn cho cùng đầu ra, bất kể số thread</td></tr>
+<tr><td>Forward energy</td><td>Chi phí của các cạnh mới tạo ra khi xóa pixel (Rubinstein 2008)</td></tr>
+<tr><td>Trapezoid tiling</td><td>Chia DP thành hình thang/tam giác để giảm barrier</td></tr>
+<tr><td>Strong / weak scaling</td><td>Cố định bài toán tăng thread / tăng bài toán theo thread</td></tr>
+</table></div>
+</section>
+
+<section id="tai-lieu">
+<h2 class="chap">Tài liệu tham khảo</h2>
+<ol>
+  <li>S. Avidan, A. Shamir. <i>Seam Carving for Content-Aware Image Resizing</i>. ACM Transactions on Graphics 26(3), SIGGRAPH 2007.</li>
+  <li>M. Rubinstein, A. Shamir, S. Avidan. <i>Improved Seam Carving for Video Retargeting</i>. ACM Transactions on Graphics 27(3), SIGGRAPH 2008.</li>
+  <li>P. Pérez, M. Gangnet, A. Blake. <i>Poisson Image Editing</i>. ACM TOG 22(3), 2003. (Section 4.5)</li>
+  <li>N. Dalal, B. Triggs. <i>Histograms of Oriented Gradients for Human Detection</i>. CVPR 2005. (<i>e</i><sub>HoG</sub>)</li>
+  <li>L. Itti, C. Koch, E. Niebur. <i>A Model of Saliency-Based Visual Attention for Rapid Scene Analysis</i>. IEEE PAMI 20(11), 1998. (Paper gốc ghi năm 1999.)</li>
+  <li>H. W. Kuhn. <i>The Hungarian Method for the Assignment Problem</i>. Naval Research Logistics Quarterly 2, 1955. (Appendix A)</li>
+  <li>T. Cormen et al. <i>Introduction to Algorithms</i>, chương Dynamic Programming và Shortest Paths in DAGs.</li>
+  <li>R. Gonzalez, R. Woods. <i>Digital Image Processing</i>, các chương về lọc không gian và phát hiện cạnh.</li>
+  <li>OpenMP Architecture Review Board. <i>OpenMP Application Programming Interface Specification</i> (openmp.org).</li>
+  <li>B. Chapman, G. Jost, R. van der Pas. <i>Using OpenMP</i>. MIT Press.</li>
+  <li>R. P. Brent. <i>The Parallel Evaluation of General Arithmetic Expressions</i>. JACM 21(2), 1974. (Cận Brent, ch. 23)</li>
+  <li>J. L. Gustafson. <i>Reevaluating Amdahl's Law</i>. CACM 31(5), 1988. (ch. 23.3)</li>
+  <li>Microsoft Learn: tài liệu "OpenMP in Visual C++" và cờ <code>/openmp</code> (ch. 21.2).</li>
+  <li>OpenCV documentation: <code>cv::Mat</code>, <code>imread</code>, <code>imwrite</code> (docs.opencv.org) (ch. 20).</li>
+</ol>
+</section>
+</main>
+</div>
+
+<script>
+/* ---------- Theme & TOC ---------- */
+(function(){
+  var root=document.documentElement, btn=document.getElementById('themeBtn');
+  try{var t=localStorage.getItem('sc-theme'); if(t) root.setAttribute('data-theme',t);}catch(e){}
+  btn.addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme');
+    if(!cur) cur=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+    var nx=cur==='dark'?'light':'dark'; root.setAttribute('data-theme',nx);
+    try{localStorage.setItem('sc-theme',nx);}catch(e){}
+  });
+  var toc=document.getElementById('toc');
+  document.getElementById('tocBtn').addEventListener('click',function(){toc.classList.toggle('open');});
+  toc.addEventListener('click',function(e){ if(e.target.tagName==='A') toc.classList.remove('open'); });
+})();
+
+/* ---------- Demo 1: DP step by step ---------- */
+var DP_E=[[3,1,4,1,5],[9,2,6,5,3],[5,8,9,7,9],[3,2,3,8,4]];
+(function(){
+  var H=DP_E.length, W=DP_E[0].length, tbl=document.getElementById('dpTable'), st=document.getElementById('dpStatus');
+  var M, k, phase, seam, bi;
+  function reset(){
+    M=DP_E.map(function(r,i){return r.map(function(v){return i===0?v:null;});});
+    k=W; phase='fill'; seam=[]; bi=H-1;
+    render([],[]); st.textContent='Hàng 0: M = e. Bấm “Bước tiếp” để tính hàng 1.';
+  }
+  function render(cur,par){
+    var h='<tr><th></th>'; for(var j=0;j<W;j++) h+='<th>j='+j+'</th>'; h+='</tr>';
+    for(var i=0;i<H;i++){ h+='<tr><th>i='+i+'</th>';
+      for(var j=0;j<W;j++){
+        var c=[]; if(cur.some(function(p){return p[0]===i&&p[1]===j;})) c.push('cur');
+        if(par.some(function(p){return p[0]===i&&p[1]===j;})) c.push('par');
+        if(seam[i]===j) c.push('seamcell');
+        h+='<td class="'+c.join(' ')+'">'+(M[i][j]===null?'·':M[i][j])+'<small>e='+DP_E[i][j]+'</small></td>';
+      } h+='</tr>'; }
+    tbl.innerHTML=h;
+  }
+  function parents(i,j){ var p=[]; for(var d=-1;d<=1;d++){var jj=j+d; if(jj>=0&&jj<W) p.push([i-1,jj]);} return p; }
+  function step(){
+    if(phase==='fill'){
+      var i=Math.floor(k/W), j=k%W, ps=parents(i,j), vals=ps.map(function(p){return M[p[0]][p[1]];});
+      var mn=Math.min.apply(null,vals); M[i][j]=DP_E[i][j]+mn;
+      render([[i,j]],ps);
+      st.textContent='M('+i+','+j+') = '+DP_E[i][j]+' + min('+vals.join(', ')+') = '+M[i][j];
+      k++; if(k===H*W){phase='back';}
+      return true;
+    }
+    if(phase==='back'){
+      if(bi===H-1){
+        var row=M[H-1], mj=0; for(var j=1;j<W;j++) if(row[j]<row[mj]) mj=j;
+        seam[H-1]=mj; render([[H-1,mj]],[]);
+        st.textContent='Truy vết: min hàng cuối = '+row[mj]+' tại j='+mj; bi--; return true;
+      }
+      if(bi>=0){
+        var j0=seam[bi+1], best=j0;
+        if(j0>0&&M[bi][j0-1]<M[bi][best]) best=j0-1;
+        if(j0<W-1&&M[bi][j0+1]<M[bi][best]) best=j0+1;
+        var ps=parents(bi+1,j0); seam[bi]=best; render([[bi,best]],ps);
+        st.textContent='Hàng '+bi+': xét '+ps.map(function(p){return 'M('+p[0]+','+p[1]+')='+M[p[0]][p[1]];}).join(', ')+' → chọn j='+best;
+        bi--; if(bi<0) phase='done'; return true;
+      }
+    }
+    if(phase==='done'){
+      var cost=0; for(var i=0;i<H;i++) cost+=DP_E[i][seam[i]];
+      render([],[]); st.textContent='Xong! Seam (cột theo hàng) = ['+seam.join(', ')+'], chi phí = '+cost+'.';
+      phase='end'; return true;
+    }
+    return false;
+  }
+  document.getElementById('dpStep').onclick=step;
+  document.getElementById('dpAll').onclick=function(){ while(step()){} };
+  document.getElementById('dpReset').onclick=reset;
+  reset();
+})();
+
+/* ---------- Demo 2: live seam carving ---------- */
+(function(){
+  var main=document.getElementById('scMain'), scaled=document.getElementById('scScaled');
+  var range=document.getElementById('scRange'), info=document.getElementById('scInfo');
+  var showSeam=document.getElementById('scShowSeam'), showEnergy=document.getElementById('scShowEnergy');
+  var fwdBox=document.getElementById('scForward');
+  var orig=document.createElement('canvas'), oW, oH, w, h, px, energy, seam, busy=false;
+
+  function drawSample(){
+    oW=360; oH=220; orig.width=oW; orig.height=oH; var c=orig.getContext('2d');
+    var g=c.createLinearGradient(0,0,0,150); g.addColorStop(0,'#6fbde8'); g.addColorStop(1,'#d9f0fb');
+    c.fillStyle=g; c.fillRect(0,0,oW,150);
+    c.fillStyle='#ffffff'; [[70,40,26,10],[95,36,20,9],[230,60,30,10]].forEach(function(e){c.beginPath();c.ellipse(e[0],e[1],e[2],e[3],0,0,7);c.fill();});
+    c.fillStyle='#ffd24a'; c.beginPath(); c.arc(300,48,22,0,7); c.fill();
+    var gg=c.createLinearGradient(0,140,0,220); gg.addColorStop(0,'#6dbb55'); gg.addColorStop(1,'#3f8a37');
+    c.fillStyle=gg; c.fillRect(0,140,oW,80);
+    c.fillStyle='#c4553a'; c.fillRect(60,100,70,50);
+    c.fillStyle='#6b2e22'; c.beginPath(); c.moveTo(52,102); c.lineTo(95,68); c.lineTo(138,102); c.fill();
+    c.fillStyle='#f3e3b0'; c.fillRect(72,114,16,14); c.fillStyle='#5a3a22'; c.fillRect(102,118,14,32);
+    c.fillStyle='#6b4a2b'; c.fillRect(215,110,10,42);
+    c.fillStyle='#2f7a34'; c.beginPath(); c.arc(220,96,24,0,7); c.fill();
+    c.fillStyle='#2b2b2b'; c.fillRect(276,128,6,22); c.beginPath(); c.arc(279,122,6,0,7); c.fill();
+    loadFromOrig();
+  }
+  function loadFromOrig(){
+    px=orig.getContext('2d').getImageData(0,0,oW,oH).data.slice(); w=oW; h=oH;
+    range.min=Math.round(oW*0.4); range.max=oW; range.value=oW; computeAll(); draw();
+  }
+  function computeAll(){
+    var gray=new Float32Array(w*h);
+    for(var i=0;i<w*h;i++) gray[i]=0.299*px[i*4]+0.587*px[i*4+1]+0.114*px[i*4+2];
+    energy=new Float32Array(w*h);
+    for(var y=0;y<h;y++){ var yu=y>0?y-1:0, yd=y<h-1?y+1:h-1;
+      for(var x=0;x<w;x++){ var xl=x>0?x-1:0, xr=x<w-1?x+1:w-1;
+        energy[y*w+x]=Math.abs(gray[y*w+xr]-gray[y*w+xl])+Math.abs(gray[yd*w+x]-gray[yu*w+x]); } }
+    var M=new Float32Array(w*h), par=new Int8Array(w*h), fwd=fwdBox.checked;
+    for(var x=0;x<w;x++){ var xl0=x>0?x-1:0, xr0=x<w-1?x+1:w-1; M[x]=fwd?Math.abs(gray[xr0]-gray[xl0]):energy[x]; }
+    for(var y=1;y<h;y++){ var up=(y-1)*w, row=y*w;
+      for(var x=0;x<w;x++){ var xl=x>0?x-1:0, xr=x<w-1?x+1:w-1, cU=0, cL=0, cR=0;
+        if(fwd){ cU=Math.abs(gray[row+xr]-gray[row+xl]); cL=cU+Math.abs(gray[up+x]-gray[row+xl]); cR=cU+Math.abs(gray[up+x]-gray[row+xr]); }
+        var b=M[up+x]+cU, p=0;                       /* ưu tiên giữa, rồi trái, rồi phải */
+        if(x>0&&M[up+x-1]+cL<b){ b=M[up+x-1]+cL; p=-1; }
+        if(x<w-1&&M[up+x+1]+cR<b){ b=M[up+x+1]+cR; p=1; }
+        M[row+x]=(fwd?0:energy[row+x])+b; par[row+x]=p; } }
+    seam=new Int32Array(h); var mj=0, last=(h-1)*w;
+    for(var x=1;x<w;x++) if(M[last+x]<M[last+mj]) mj=x;
+    seam[h-1]=mj;
+    for(var y=h-1;y>0;y--) seam[y-1]=seam[y]+par[y*w+seam[y]];
+  }
+  function removeSeam(){
+    var nw=w-1, out=new Uint8ClampedArray(nw*h*4);
+    for(var y=0;y<h;y++){ var s=seam[y];
+      for(var x=0;x<nw;x++){ var sx=x<s?x:x+1, d=(y*nw+x)*4, o=(y*w+sx)*4;
+        out[d]=px[o]; out[d+1]=px[o+1]; out[d+2]=px[o+2]; out[d+3]=255; } }
+    px=out; w=nw; computeAll();
+  }
+  function draw(){
+    main.width=w; main.height=h; var c=main.getContext('2d'), im=c.createImageData(w,h), d=im.data;
+    if(showEnergy.checked){ var mx=0; for(var i=0;i<w*h;i++) if(energy[i]>mx) mx=energy[i];
+      for(var i=0;i<w*h;i++){ var v=Math.min(255,Math.sqrt(energy[i]/(mx||1))*255); d[i*4]=d[i*4+1]=d[i*4+2]=v; d[i*4+3]=255; } }
+    else d.set(px);
+    if(showSeam.checked && w>2) for(var y=0;y<h;y++){ var o=(y*w+seam[y])*4; d[o]=230; d[o+1]=40; d[o+2]=35; d[o+3]=255; }
+    c.putImageData(im,0,0);
+    scaled.width=w; scaled.height=h; var sc=scaled.getContext('2d'); sc.imageSmoothingEnabled=true; sc.drawImage(orig,0,0,w,h);
+    var pct=(w/oW*100)+'%'; main.style.width=pct; scaled.style.width=pct;
+    info.textContent=w+' × '+h+' px (gốc '+oW+' × '+oH+')';
+  }
+  function animateTo(target){
+    if(busy) return; if(target>w){ loadFromOrig(); }
+    busy=true;
+    (function tick(){ var n=0; while(w>target && n<2){ removeSeam(); n++; } draw();
+      if(w>target) requestAnimationFrame(tick); else { busy=false; range.value=w; } })();
+  }
+  document.getElementById('scOne').onclick=function(){ if(!busy && w>range.min) animateTo(w-1); };
+  document.getElementById('scTen').onclick=function(){ if(!busy) animateTo(Math.max(+range.min,w-20)); };
+  document.getElementById('scReset').onclick=function(){ if(!busy) loadFromOrig(); };
+  range.oninput=function(){ var t=+range.value; if(t!==w) animateTo(t); };
+  showSeam.onchange=draw; showEnergy.onchange=draw;
+  fwdBox.onchange=function(){ if(!busy) loadFromOrig(); };   /* đổi kiểu năng lượng → bắt đầu lại từ ảnh gốc */
+  document.getElementById('scFile').onchange=function(e){
+    var f=e.target.files&&e.target.files[0]; if(!f) return;
+    var url=URL.createObjectURL(f), img=new Image();
+    img.onload=function(){ var s=Math.min(1,420/img.width,300/img.height);
+      oW=Math.max(20,Math.round(img.width*s)); oH=Math.max(20,Math.round(img.height*s));
+      orig.width=oW; orig.height=oH; orig.getContext('2d').drawImage(img,0,0,oW,oH); URL.revokeObjectURL(url); loadFromOrig(); };
+    img.src=url;
+  };
+  drawSample();
+})();
+
+/* ---------- Demo 4: trapezoid tiling ---------- */
+(function(){
+  var W=30, B=10, NB=3, tbl=document.getElementById('tzTable'), rIn=document.getElementById('tzR');
+  var HUES=[18,200,130];
+  function owner(t,c){                       /* trả về [pha, thread] cho ô hàng t (1..R), cột c */
+    var k=Math.floor(c/B), b0=k*B, b1=b0+B-1;
+    var lo=k>0?b0+t:0, hi=k<NB-1?b1-t:W-1;
+    if(c>=lo&&c<=hi) return [1,k];
+    return c<lo?[2,k-1]:[2,k];               /* tam giác ở ranh giới trái thuộc thread k-1 */
+  }
+  function render(){
+    var R=+rIn.value, h='<tr><th></th>';
+    document.getElementById('tzRv').textContent=R;
+    for(var c=0;c<W;c++) h+='<th>'+c+'</th>';
+    h+='</tr><tr><th>r0</th>';
+    for(var c=0;c<W;c++) h+='<td style="background:var(--surface-2)"></td>';
+    h+='</tr>';
+    var n1=0,n2=0;
+    for(var t=1;t<=R;t++){ h+='<tr><th>+'+t+'</th>';
+      for(var c=0;c<W;c++){ var o=owner(t,c), col='hsl('+HUES[o[1]]+' 60% 50%)';
+        var bg=o[0]===1?col:'repeating-linear-gradient(45deg,'+col+' 0 3px,transparent 3px 6px)';
+        if(o[0]===1) n1++; else n2++;
+        h+='<td style="background:'+bg+';color:#fff;font-weight:700;padding:3px 4px;min-width:20px">'+o[0]+'</td>'; }
+      h+='</tr>'; }
+    tbl.innerHTML=h;
+    document.getElementById('tzInfo').textContent='Pha 1: '+n1+' ô · Pha 2: '+n2+' ô · Barrier cho dải này: 2 (DP theo hàng cần '+R+')';
+  }
+  rIn.oninput=render; render();
+})();
+
+/* ---------- Demo 3: Amdahl ---------- */
+(function(){
+  var f=document.getElementById('amF'), p=document.getElementById('amP');
+  function up(){ var fv=f.value/100, pv=+p.value, S=1/((1-fv)+fv/pv);
+    document.getElementById('amFv').textContent=f.value+'%'; document.getElementById('amPv').textContent=pv;
+    var lim=fv<1?(1/(1-fv)).toFixed(2):'∞';
+    document.getElementById('amOut').textContent='S('+pv+') = '+S.toFixed(2)+'×   ·   E = '+(S/pv*100).toFixed(1)+'%   ·   giới hạn khi p→∞: '+lim+'×'; }
+  f.oninput=up; p.oninput=up; up();
+})();
+</script>
+</body>
+</html>
