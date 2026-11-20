@@ -1,4 +1,4 @@
-"""M4 benchmark runner (docs/benchmark_plan.md).
+"""Benchmark runner for M4 and M5 (docs/benchmark_plan.md, docs/optimization_report.md).
 
 Runs build/seam_carving --csv for every configuration of an experiment and stores ONE CSV row per run
 (raw data; medians are computed later by scripts/analyze_bench.py).
@@ -52,15 +52,22 @@ def main_image(size):
     return f"person_desert_{size}.png"
 
 
-def cfg(image, reduction, mode, threads=None, stages=ALL, persistent=False, schedule=None):
-    """One benchmark configuration. reduction = fraction of the width removed (0.1 / 0.2 / 0.3)."""
+def cfg(image, reduction, mode, threads=None, stages=ALL, persistent=False, schedule=None,
+        opt=None, dp_block=0, par_min=0):
+    """One benchmark configuration. reduction = fraction of the width removed (0.1 / 0.2 / 0.3).
+    mode "opt" (M5): opt = --opt list ("incr,simd,compact" / "none" / ...), dp_block = --dp-block,
+    par_min = --par-min-pixels."""
     return {"image": image, "reduction": reduction, "mode": mode, "threads": threads,
-            "stages": stages, "persistent": persistent, "schedule": schedule}
+            "stages": stages, "persistent": persistent, "schedule": schedule,
+            "opt": opt, "dp_block": dp_block, "par_min": par_min}
 
 
 def config_id(c):
     if c["mode"] == "seq":
         return f"{c['image']}|{c['reduction']}|seq"
+    if c["mode"] == "opt":
+        return (f"{c['image']}|{c['reduction']}|opt|t{c['threads']}|{c['opt']}|K{c['dp_block']}"
+                f"|thr{c['par_min']}|{c['schedule'] or 'static(default)'}")
     return (f"{c['image']}|{c['reduction']}|omp|t{c['threads']}|{c['stages']}"
             f"{'|persistent' if c['persistent'] else ''}|{c['schedule'] or 'static(default)'}")
 
@@ -150,7 +157,72 @@ def exp_wsl():
     return out
 
 
+# ---- M5 (docs/optimization_report.md). Run on Linux (Docker) with --exe; see the report, section 2. ----
+FINAL_OPT = "incr,simd,compact"
+NODP = "energy,min,removal"
+
+
+def opt(img, red, t, o=FINAL_OPT, K=0, thr=0, schedule=None):
+    return cfg(img, red, "opt", t, opt=o, dp_block=K, par_min=thr, schedule=schedule)
+
+
+def exp_m5_ablation(sizes=("1920x1080", "3840x2160"), red=0.2, T=8):
+    """Every optimization alone (1 thread) and added step by step (T threads), plus the M2 versions."""
+    out = []
+    for s in sizes:
+        img = main_image(s)
+        out += [cfg(img, red, "seq"),
+                cfg(img, red, "omp", T, ALL), cfg(img, red, "omp", T, NODP)]
+        out += [opt(img, red, 1, o) for o in ("none", "simd", "incr", "incr,simd", FINAL_OPT)]
+        out += [opt(img, red, T, o) for o in ("none", "simd", "incr,simd", FINAL_OPT)]
+        out += [opt(img, red, T, "incr,simd", K=64), opt(img, red, T, FINAL_OPT, K=64)]
+    return out
+
+
+def exp_m5_block(sizes=("1920x1080", "3840x2160"), red=0.2, T=8):
+    """Block height K of the blocked DP (K = 1: one barrier per row; K = 0: sequential DP)."""
+    out = []
+    for s in sizes:
+        img = main_image(s)
+        out.append(cfg(img, red, "seq"))
+        out += [opt(img, red, T, K=K) for K in (0, 1, 2, 4, 8, 16, 32, 64, 128, 256)]
+    return out
+
+
+def exp_m5_threads(sizes=("512x512", "1920x1080", "3840x2160"), red=0.2):
+    """Speedup of the final optimized version vs thread count, next to the best M2 version."""
+    out = []
+    for s in sizes:
+        img = main_image(s)
+        out.append(cfg(img, red, "seq"))
+        out += [opt(img, red, t, K=64) for t in (1, 2, 4, 6, 8, 12, 16)]
+        out += [cfg(img, red, "omp", t, NODP) for t in (1, 2, 4, 8, 16)]
+    return out
+
+
+def exp_m5_threads_8k():
+    return exp_m5_threads(sizes=("7680x4320",), red=0.1)
+
+
+def exp_m5_misc():
+    """Threshold (O4), schedules and image content for the final version."""
+    small, mid = main_image("512x512"), main_image("1920x1080")
+    out = [cfg(small, 0.2, "seq"), opt(small, 0.2, 1, K=64)]
+    out += [opt(small, 0.2, t, K=64, thr=thr) for t in (8, 16) for thr in (0, 10 ** 12)]
+    out.append(cfg(mid, 0.2, "seq"))
+    out += [opt(mid, 0.2, 8, K=64, schedule=s) for s in (None, "static,1", "dynamic,16", "guided")]
+    for name in ("boat_sea", "tree_field", "building_windows", "face_portrait", "noise"):
+        img = f"{name}_1920x1080.png"
+        out += [cfg(img, 0.2, "seq"), opt(img, 0.2, 8, K=64)]
+    return out
+
+
 EXPERIMENTS = {
+    "m5_ablation": exp_m5_ablation,
+    "m5_block": exp_m5_block,
+    "m5_threads": exp_m5_threads,
+    "m5_threads_8k": exp_m5_threads_8k,
+    "m5_misc": exp_m5_misc,
     "pilot": exp_pilot,
     "pilot_threads": exp_pilot_threads,
     "main": exp_main,
@@ -218,6 +290,11 @@ def machine_info():
             pass
         info["kernel"] = platform.release()
         info["wsl"] = "microsoft" in platform.release().lower()
+        info["container"] = Path("/.dockerenv").exists()
+        try:
+            info["opencv"] = sh(["dpkg-query", "-W", "-f=${Version}", "libopencv-dev"]) or "unknown"
+        except Exception:  # noqa: BLE001 - metadata only
+            pass
     if sys.platform == "win32":
         ps = ("$p=Get-CimInstance Win32_Processor; $c=Get-CimInstance Win32_ComputerSystem; "
               "$b=Get-CimInstance Win32_Battery; "
@@ -248,6 +325,9 @@ def build_cmd(c, out_png):
         cmd += ["--mode", "omp", "--threads", str(c["threads"]), "--stages", c["stages"]]
         if c["persistent"]:
             cmd.append("--persistent-dp")
+    elif c["mode"] == "opt":
+        cmd += ["--mode", "opt", "--threads", str(c["threads"]), "--opt", c["opt"],
+                "--dp-block", str(c["dp_block"]), "--par-min-pixels", str(c["par_min"])]
     return cmd
 
 
@@ -337,7 +417,7 @@ def main():
                 row = {"experiment": a.experiment, "config": cid, "image": c["image"],
                        "reduction": c["reduction"], "round": rnd, "warmup": int(rnd < a.warmup),
                        "omp_schedule_env": c["schedule"] or "",
-                       "oversubscribed": int(c["mode"] == "omp" and c["threads"] > LOGICAL),
+                       "oversubscribed": int(c["mode"] != "seq" and c["threads"] > LOGICAL),
                        **v, "output_sha256": digest, "hash_ok": ok, "exit": code,
                        "wall_s": round(wall, 3), "timestamp": datetime.now().isoformat(timespec="seconds")}
                 w.writerow(row)
