@@ -14,10 +14,10 @@
 
 ## Current Project Status
 
-- Current milestone: M5 finished (`docs/optimization_report.md`); M6 in progress
+- Current milestone: M6 finished (`docs/final_report.md`, `docs/presentation/`); all milestones M0–M6 done
 - Overall status: three versions (sequential, basic OpenMP, optimized OpenMP), all bit-exact equal (M3 tests, `test_opt`, 714/714 M5 benchmark outputs); optimized version 4.4–4.8× faster than sequential with 8 threads (M5, Ryzen 7 4800H, Linux container); M4 numbers (i7-1065G7, Windows) are from a different machine
 - Build environment on the M5/M6 machine: Docker Linux container (`docker/Dockerfile`), because Windows Smart App Control blocks locally built executables
-- Last updated: 2026-11-20
+- Last updated: 2026-11-21
 
 ## Milestone Progress
 
@@ -29,7 +29,7 @@
 | M3        | Correctness Testing           | Completed (2026-11-19, `docs/testing_report.md`) |
 | M4        | Performance Benchmarking      | Completed (2026-11-19, `docs/benchmark_report.md`) |
 | M5        | Performance Optimization      | Completed (2026-11-20, `docs/optimization_report.md`) |
-| M6        | Final Report and Presentation | In progress |
+| M6        | Final Report and Presentation | Completed (2026-11-21, `docs/final_report.md`; slides to be built from `docs/presentation/slides_outline.md`) |
 
 ---
 
@@ -2099,3 +2099,157 @@ M6 (final report, README, slide outline, demo script, Q&A); commit and push.
 #### 10. Next Step
 
 M6.
+
+### [2026-11-20 23:30] – M5: ThreadSanitizer check of the optimized version
+
+**Milestone:** M5
+
+**Status:** Completed.
+
+#### 1. Objective
+
+The first version of the M5 report said that ThreadSanitizer (TSan) could not be used. M3 had shown that
+TSan works with clang + LLVM libomp + the Archer OpenMP tool, so the M5 code was checked the same way.
+
+#### 2. Work Performed
+
+- `scripts/run_sanitizers.sh`: builds and runs `test_opt` in the asan and tsan modes (quick + full);
+  header documents the extra package and the start-up workaround below.
+- Problems on the way, in order:
+  1. Link error: `libclang_rt.tsan-x86_64.a` missing → package `libclang-rt-18-dev`.
+  2. Every TSan binary (also `test_m3`) crashed at start-up with a segmentation fault: TSan of clang 18
+     does not support the default address-space randomization of the 6.x kernel → run the script under
+     `setarch x86_64 -R`.
+  3. `setarch` failed ("Operation not permitted") because Docker's default seccomp filter blocks the
+     `personality` system call → container started with `--security-opt seccomp=unconfined` (only for
+     this temporary test container, no change to the machine).
+- Positive control: copy of the sources with the block barrier in `blockedDP` removed.
+
+#### 3. Technical Explanation
+
+TSan records every memory access and reports two accesses from different threads to the same address
+when neither "happens before" the other. Archer tells TSan which OpenMP constructs (barriers, region
+ends) create such an ordering. If TSan stays silent on the original code but reports the mutant, the
+barriers we rely on are both present and necessary.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| scripts/run_sanitizers.sh | Modified | `test_opt` added; TSan start-up notes |
+| docs/optimization_report.md | Modified | Section 7: TSan results instead of "not run" |
+
+#### 5. Commands Executed
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm --security-opt seccomp=unconfined -v "D:/Projects/TTSS:/src" ttss-dev bash -c '
+  apt-get install -y clang libomp-dev llvm libclang-rt-18-dev
+  setarch x86_64 -R bash scripts/run_sanitizers.sh tsan /src /tmp/san
+  # mutant: sed removes "#pragma omp barrier" in blockedDP (src/seam_opt.cpp:184), then
+  setarch x86_64 -R bash scripts/run_sanitizers.sh tsan-quick /tmp/mut /tmp/san'
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| `test_opt --quick`, TSan | 0 races | 4516 checks, 0 failed, 0 data races | Passed |
+| `test_opt` full, TSan | 0 races | 18636 checks, 0 failed, 0 data races (1541 s) | Passed |
+| `test_m3` quick + full, TSan | 0 races | 6801 + 71580 checks, 0 failed, 0 data races | Passed |
+| mutant without block barrier, `test_opt --quick`, TSan | races reported | 612 failed, 290 data-race reports in `src/seam_opt.cpp` | Passed (detected) |
+
+Every TSan run also printed 4 "lock-order-inversion" warnings. All their stack frames are inside
+`libgdal` (used by Ubuntu's OpenCV package for image loading); no project frame is involved.
+
+#### 7. Problems Encountered
+
+See section 2. The lock-order warnings are not suppressed (they are outside the project and harmless for
+the result); `tests/tsan.supp` was left unchanged.
+
+#### 8. Decisions and Reasoning
+
+Turning off address randomization only for the test process is safe and does not change the program's
+behaviour; it is the documented workaround for this TSan/kernel combination.
+
+#### 9. Remaining Tasks
+
+None for M5.
+
+#### 10. Next Step
+
+M6.
+
+### [2026-11-21 00:00] – M6: final report, README, presentation material
+
+**Milestone:** M6
+
+**Status:** Completed (documents written; presentation slides themselves are to be made by the team
+from the outline).
+
+#### 1. Objective
+
+Write the final academic report (15 sections required by `M6.md`), update README, and prepare a slide
+outline, a demonstration script and a list of instructor questions with answers.
+
+#### 2. Work Performed
+
+- `docs/final_report.md`: formal academic English, sections 1–15 (Introduction … References), with
+  formulas, pseudocode, a Mermaid pipeline diagram, code excerpts from `seam_omp.cpp` / `seam_opt.cpp`,
+  tables and figures taken only from `results/` (M4 and M5), a table separating the original paper's
+  contributions from our decisions, and 8 references (Avidan & Shamir 2007 first).
+- `README.md`: status M5/M6 done, one-sentence result, Docker build, `--mode opt` options, M5
+  benchmark commands, layout and document list.
+- `docs/presentation/slides_outline.md` (14 slides), `demo_script.md` (≈ 6 min, live commands in the
+  container), `instructor_qa.md` (20 questions with answers).
+- Checked every number against the source tables; corrected one wrong total during review (test checks:
+  ≈ 237 000 = 65 + 147 368 + 71 580 + 18 636, first draft said "> 300 000"), the seam counts of the
+  7680 × 4320 row, and the synchronization count (414 336 = 1079 rows × 384 seams).
+
+#### 3. Technical Explanation
+
+The report combines the three platforms honestly: M3/M4 numbers (Intel, Windows) and M5 numbers (AMD,
+Linux container) are never compared with each other; every speedup uses a sequential run of the same
+session. Calculations (Amdahl bounds, memory traffic, halo cost) are marked as calculations.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| docs/final_report.md | Created | Final report |
+| docs/presentation/slides_outline.md | Created | 14-slide outline |
+| docs/presentation/demo_script.md | Created | Demonstration script |
+| docs/presentation/instructor_qa.md | Created | Expected questions and answers |
+| README.md | Modified | M5/M6 status, Docker, `--mode opt`, layout |
+| WORKLOG.md | Modified | Entries, status |
+
+#### 5. Commands Executed
+
+```bash
+file tests/data/*.png        # image sizes for the demo commands (800x533, 800x600, ...)
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| numbers in the report vs `results/summary.md`, `results/m5_summary.md` | identical | 3 errors found and corrected (see 2.) | Passed after correction |
+| demo script sections 1–3 and backup (in the container) | run, identical hashes | all commands ran; seq / omp / opt hashes identical (21e0609d…); t_total 2.275 / 1.459 / 0.496 s; 1 thread 0.967 s, DP sequential 0.790 s; height reduction 800×600 → 700×400 ok | Passed |
+
+#### 7. Problems Encountered
+
+- Demo commands were dry-run once in the container (single runs, not benchmark values); the team should rehearse on the presentation machine.
+- Mermaid diagram renders on GitHub; in other Markdown viewers it appears as code.
+
+#### 8. Decisions and Reasoning
+
+- Report as Markdown in the repository (versioned with the code, figures linked from `docs/figures/`).
+- Only references we could cite with certainty; related GPU work mentioned only as future work.
+
+#### 9. Remaining Tasks
+
+- Team: build the actual slides from the outline and rehearse the demo.
+- Members B/C agreement on the M0 contract is still not recorded (from M0).
+
+#### 10. Next Step
+
+Commit and push to `main`; rehearse the demo on the presentation machine.

@@ -14,9 +14,15 @@ with the lowest "energy" (edge strength), so important objects keep their shape.
 | M2 | OpenMP implementation (`src/seam_omp.cpp`) | Done (results identical to sequential; see limitation below) |
 | M3 | Correctness testing (`tests/test_m3.cpp`, `docs/testing_report.md`) | Done |
 | M4 | Benchmarking (`scripts/`, `results/`, `docs/benchmark_report.md`) | Done |
-| M5–M6 | Optimization, report | Not started |
+| M5 | Optimization (`src/seam_opt.cpp`, `docs/optimization_report.md`) | Done |
+| M6 | Final report and presentation (`docs/final_report.md`, `docs/presentation/`) | Done |
 
-See `WORKLOG.md` for the detailed development history.
+**Results in one sentence.** All three versions (sequential, basic OpenMP, optimized OpenMP) give
+bit-identical images; the optimized version is **4.4–4.8× faster** than the sequential program with
+8 threads (AMD Ryzen 7 4800H, Linux), the basic OpenMP version 1.5–1.6× on the same machine.
+
+**Start here:** `docs/final_report.md` (complete project report). See `WORKLOG.md` for the detailed
+development history.
 
 ---
 
@@ -46,6 +52,19 @@ Installation:
 
 On Linux, install `g++`, `cmake`, `ninja-build` and `libopencv-dev` from the package manager.
 
+**Docker (any OS, used for M5).** If locally built Windows programs cannot run (for example, Windows
+*Smart App Control* blocks unsigned executables with "Permission denied"), use the Linux container:
+
+```bash
+docker build -t ttss-dev docker
+docker run --rm -it -v "<repo>:/src" -v ttss-build:/build ttss-dev bash
+# inside the container:
+cmake -S /src -B /build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build /build/rel
+ctest --test-dir /build/rel -L quick
+```
+
+(In Git Bash on Windows, prefix `docker run` with `MSYS_NO_PATHCONV=1`.)
+
 ---
 
 ## 2. Build
@@ -71,6 +90,8 @@ ctest --test-dir build -L full                      # slow set (~8 min): before 
 - `test_equivalence`: OpenMP vs sequential, every stage of every seam, many thread counts and schedules.
 - `test_m3` (`--quick` / full): M3 tests – independent reference implementation, edge-case images,
   border seams, maximum contrast, large images, odd thread counts, oversubscription, repeated runs.
+- `test_opt` (`--quick` / full): M5 optimized version – every kernel and the whole carve compared with
+  the sequential code for many thread counts and DP block heights.
 - `cli_*`: command-line checks (invalid arguments must fail, a normal run must succeed).
 
 Extra checks (M3, see `docs/testing_report.md`): `python scripts/mutation_check.py` (do the tests catch
@@ -94,6 +115,19 @@ Main results (Intel i7-1065G7, 4 cores / 8 threads, Windows 11, GCC 16.2 libgomp
 - Same code under Linux (WSL2): the parallel DP is no longer slow, and all four stages parallel reach
   1.36–1.71× with 4 threads.
 
+## 3b. Benchmark (M5, see `docs/optimization_report.md`)
+
+Runs inside the Docker container (about 75 min):
+
+```bash
+docker run --rm -v "<repo>:/src" -v ttss-build:/build ttss-dev bash scripts/run_m5_bench.sh
+docker run --rm -v "<repo>:/src" ttss-dev python3 scripts/analyze_m5.py   # results/m5_summary.md, docs/figures/m5_*.png
+```
+
+Main results (AMD Ryzen 7 4800H, 8 cores / 16 threads, Linux container, GCC 13.3 libgomp), speedup over
+the sequential program with 8 threads: 3.36× (512×512), 4.64× (1920×1080), 4.40× (3840×2160),
+4.69× (7680×4320). With one thread the optimized version is already 2.4× faster (less work).
+
 ---
 
 ## 4. Run
@@ -110,10 +144,13 @@ build/seam_carving --input tests/data/boat_sea.png --output out/boat_640.png --w
 | `--output <path>` | Output image | required |
 | `--width <W>` | Target width (1 … input width) | required |
 | `--height <H>` | Target height (1 … input height) | input height |
-| `--mode seq\|omp` | Sequential or OpenMP version | `seq` |
-| `--threads <N>` | OpenMP threads (omp only) | all available |
+| `--mode seq\|omp\|opt` | Sequential, basic OpenMP (M2) or optimized OpenMP (M5) version | `seq` |
+| `--threads <N>` | OpenMP threads (omp, opt) | all available |
 | `--stages <list>` | Parallel stages, subset of `energy,dp,min,removal` (omp only) | all |
 | `--persistent-dp` | DP with one persistent parallel region (omp only) | off |
+| `--opt <list>` | Optimizations of `opt`: subset of `incr,simd,compact`, or `none` | `incr,simd,compact` |
+| `--dp-block <K>` | Blocked parallel DP, one barrier per K rows; 0 = sequential DP (opt only) | `64` |
+| `--par-min-pixels <N>` | No parallel region for images below N pixels (opt only) | `0` |
 | `--csv` | Print one machine-readable line | off |
 
 Exit codes: `0` success, `1` invalid arguments, `2` cannot read/write an image.
@@ -124,6 +161,8 @@ OpenMP examples:
 build/seam_carving --input tests/data/boat_sea.png --output out/b.png --width 640 --mode omp --threads 8
 build/seam_carving --input tests/data/boat_sea.png --output out/b.png --width 640 --mode omp --threads 8 --stages energy,removal
 OMP_SCHEDULE="dynamic,64" build/seam_carving ... --mode omp      # PowerShell: $env:OMP_SCHEDULE="dynamic,64"
+build/seam_carving --input tests/data/boat_sea.png --output out/b.png --width 640 --mode opt --threads 8
+build/seam_carving --input tests/data/boat_sea.png --output out/b.png --width 640 --mode opt --threads 8 --opt none --dp-block 0   # all optimizations off
 ```
 
 All parallel loops use `schedule(runtime)`. If `OMP_SCHEDULE` is not set, the program uses `static`.
@@ -132,7 +171,9 @@ All parallel loops use `schedule(runtime)`. If `OMP_SCHEDULE` is not set, the pr
 hundreds of microseconds, so the parallel DP stage (one barrier per image row) is much slower than the
 sequential one. Details: `docs/parallelization_strategy.md` §11.4 and `docs/benchmark_report.md` §7.1.
 The same code built for Linux does not have this problem (measured in WSL2, benchmark report §6.9). On
-Windows the fastest measured configuration therefore keeps the DP sequential: `--stages energy,min,removal`.
+Windows the fastest measured M2 configuration therefore keeps the DP sequential: `--stages energy,min,removal`.
+The optimized version (`--mode opt`) needs only one barrier per 64 DP rows; it was measured under Linux
+(`docs/optimization_report.md`), not natively on Windows.
 
 `--csv` prints one line with the columns
 
@@ -147,22 +188,27 @@ Times are in seconds and exclude image loading and saving (details: `docs/archit
 ## 5. Repository Layout
 
 ```
-include/   seam_common.h (shared types), seam_seq.h, seam_omp.h
-src/       seam_seq.cpp (sequential, no OpenMP), seam_omp.cpp, main.cpp
+include/   seam_common.h (shared types), seam_seq.h, seam_omp.h, seam_opt.h
+src/       seam_seq.cpp (sequential, no OpenMP), seam_omp.cpp (basic OpenMP), seam_opt.cpp (optimized), main.cpp
 tests/     test programs and tests/data/ (lossless PNG test images, see images/SOURCES.md)
 scripts/   benchmark, analysis, mutation-check and sanitizer scripts; membw.cpp (bandwidth reference)
-results/   raw benchmark data (*.csv, *.meta.json), summary.md, membw.txt
-docs/      algorithm.md, parallelization_strategy.md, architecture.md, benchmark_plan.md,
-           testing_report.md, benchmark_report.md, figures/ (benchmark plots)
+results/   raw benchmark data (*.csv, *.meta.json), summary.md / m5_summary.md, membw.txt / m5_membw.txt
+docker/    Dockerfile of the Linux build and benchmark environment
+docs/      final_report.md, algorithm.md, parallelization_strategy.md, architecture.md, benchmark_plan.md,
+           testing_report.md, benchmark_report.md, optimization_report.md, figures/ (plots),
+           presentation/ (slide outline, demo script, instructor Q&A)
 ```
 
 ## 6. Documentation
 
+- `docs/final_report.md` – **final project report** (M6), summarizes everything below.
+- `docs/presentation/` – slide outline, demonstration script, expected instructor questions.
 - `docs/algorithm.md` – the algorithm, pseudocode, worked 4x4 example, complexity.
 - `docs/parallelization_strategy.md` – how each stage is parallelized with OpenMP, synchronization, races.
 - `docs/architecture.md` – interface contract (functions, types, CLI, CSV).
 - `docs/benchmark_plan.md` – benchmark methodology.
 - `docs/testing_report.md` – M3 correctness testing (tests, mutation check, sanitizers).
 - `docs/benchmark_report.md` – M4 benchmark results and analysis.
+- `docs/optimization_report.md` – M5 optimizations, each measured separately.
 
 Test images: Unsplash photos, credits in `images/SOURCES.md`.
