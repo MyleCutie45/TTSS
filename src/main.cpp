@@ -1,7 +1,10 @@
 // main.cpp - command-line program "seam_carving".
 // Interface (fixed by the team contract, docs/architecture.md section 6):
 //   seam_carving --input <in> --output <out> --width <W> [--height <H>]
-//                [--mode seq|omp] [--threads <N>] [--stages <list>] [--persistent-dp] [--csv]
+//                [--mode seq|omp|opt] [--threads <N>] [--stages <list>] [--persistent-dp]
+//                [--opt <list>] [--dp-block <K>] [--par-min-pixels <N>] [--csv]
+//   --mode opt (M5) = optimized OpenMP version (seam_opt.h); --opt / --dp-block / --par-min-pixels
+//   select its optimizations. --stages / --persistent-dp apply to --mode omp only.
 // Exit codes: 0 = success, 1 = invalid arguments, 2 = cannot read input / write output.
 #include <cstdio>
 #include <iostream>
@@ -12,6 +15,7 @@
 
 #include "seam_common.h"
 #include "seam_omp.h"
+#include "seam_opt.h"
 #include "seam_seq.h"
 
 namespace {
@@ -27,14 +31,18 @@ struct Options {
     int threads = -1;          // -1 = OpenMP default (omp mode only)
     std::string stages = "energy,dp,min,removal";
     bool persistentDP = false;
+    std::string opt = "incr,simd,compact";  // --mode opt: enabled optimizations ("none" = all off)
+    int dpBlock = 0;                 // --mode opt: DP block rows (0 = sequential DP)
+    long long parMinPixels = 0;      // --mode opt: no parallel region below this many pixels
     bool csv = false;
 };
 
 void printUsage() {
     std::cerr <<
         "Usage: seam_carving --input <in.png> --output <out.png> --width <W> [--height <H>]\n"
-        "                    [--mode seq|omp] [--threads <N>] [--stages energy,dp,min,removal]\n"
-        "                    [--persistent-dp] [--csv]\n";
+        "                    [--mode seq|omp|opt] [--threads <N>] [--stages energy,dp,min,removal]\n"
+        "                    [--persistent-dp] [--opt incr,simd,compact|none] [--dp-block <K>]\n"
+        "                    [--par-min-pixels <N>] [--csv]\n";
 }
 
 int parseInt(const std::string& name, const std::string& value) {
@@ -60,15 +68,20 @@ bool parseArgs(int argc, char** argv, Options& opt) {
         else if (arg == "--threads")       opt.threads = parseInt(arg, needValue());
         else if (arg == "--stages")        opt.stages = needValue();
         else if (arg == "--persistent-dp") opt.persistentDP = true;
+        else if (arg == "--opt")           opt.opt = needValue();
+        else if (arg == "--dp-block")      opt.dpBlock = parseInt(arg, needValue());
+        else if (arg == "--par-min-pixels") opt.parMinPixels = std::stoll(needValue());
         else if (arg == "--csv")           opt.csv = true;
         else throw std::invalid_argument("unknown option: " + arg);
     }
     if (opt.input.empty() || opt.output.empty() || opt.width == -1) {
         throw std::invalid_argument("--input, --output and --width are required");
     }
-    if (opt.mode != "seq" && opt.mode != "omp") {
-        throw std::invalid_argument("--mode must be 'seq' or 'omp'");
+    if (opt.mode != "seq" && opt.mode != "omp" && opt.mode != "opt") {
+        throw std::invalid_argument("--mode must be 'seq', 'omp' or 'opt'");
     }
+    if (opt.dpBlock < 0) throw std::invalid_argument("--dp-block must be >= 0");
+    if (opt.parMinPixels < 0) throw std::invalid_argument("--par-min-pixels must be >= 0");
     if (opt.threads != -1 && opt.threads < 1) {
         throw std::invalid_argument("--threads must be >= 1");
     }
@@ -95,6 +108,30 @@ ParallelConfig makeConfig(const Options& opt) {
         else if (name == "removal") cfg.parRemoval = true;
         else throw std::invalid_argument("unknown stage '" + name +
                                          "' (allowed: energy,dp,min,removal or none)");
+        if (comma == std::string::npos) break;
+        pos = comma + 1;
+    }
+    return cfg;
+}
+
+// "--opt incr,simd,compact" -> OptConfig switches ("none" = all three off).
+OptConfig makeOptConfig(const Options& opt) {
+    OptConfig cfg;
+    cfg.threads = (opt.threads == -1) ? omp_impl::defaultThreadCount() : opt.threads;
+    cfg.dpBlockRows = opt.dpBlock;
+    cfg.parallelMinPixels = opt.parMinPixels;
+    cfg.incrementalEnergy = cfg.simdKernels = cfg.compactMemory = false;
+    if (opt.opt == "none") return cfg;
+    size_t pos = 0;
+    while (pos <= opt.opt.size()) {
+        const size_t comma = opt.opt.find(',', pos);
+        const std::string name = opt.opt.substr(pos, comma == std::string::npos ? std::string::npos
+                                                                               : comma - pos);
+        if      (name == "incr") cfg.incrementalEnergy = true;
+        else if (name == "simd") cfg.simdKernels = true;
+        else if (name == "compact") cfg.compactMemory = true;
+        else throw std::invalid_argument("unknown optimization '" + name +
+                                         "' (allowed: incr,simd,compact or none)");
         if (comma == std::string::npos) break;
         pos = comma + 1;
     }
@@ -136,7 +173,7 @@ void printCsv(const Options& opt, const RunInfo& run, const cv::Mat& in, const c
 void printHuman(const Options& opt, const RunInfo& run, const cv::Mat& in, const cv::Mat& out,
                 const StageTimings& t) {
     std::cout << "Mode:        " << opt.mode << "\n";
-    if (opt.mode == "omp") {
+    if (opt.mode != "seq") {
         std::cout << "Threads:     " << run.threads << "\n"
                   << "Schedule:    " << run.schedule << "\n"
                   << "Parallel:    " << run.stages << "\n";
@@ -156,6 +193,7 @@ void printHuman(const Options& opt, const RunInfo& run, const cv::Mat& in, const
 int main(int argc, char** argv) {
     Options opt;
     ParallelConfig config;
+    OptConfig optConfig;
     RunInfo run;
     try {
         parseArgs(argc, argv, opt);
@@ -165,6 +203,12 @@ int main(int argc, char** argv) {
             run.threads = config.threads;
             run.schedule = omp_impl::scheduleDescription();
             run.stages = stagesForCsv(config);
+        } else if (opt.mode == "opt") {
+            omp_impl::useStaticScheduleUnlessSet();
+            optConfig = makeOptConfig(opt);
+            run.threads = optConfig.threads;
+            run.schedule = omp_impl::scheduleDescription();
+            run.stages = opt_impl::describe(optConfig);   // e.g. "incr+simd+dpblock16+thr0"
         }
     } catch (const std::exception& ex) {
         std::cerr << "Error: " << ex.what() << "\n";
@@ -183,8 +227,9 @@ int main(int argc, char** argv) {
     StageTimings timings;
     cv::Mat result;
     try {
-        if (opt.mode == "omp") result = omp_impl::carve(input, opt.width, targetHeight, config, &timings);
-        else                   result = seq::carve(input, opt.width, targetHeight, &timings);
+        if (opt.mode == "omp")      result = omp_impl::carve(input, opt.width, targetHeight, config, &timings);
+        else if (opt.mode == "opt") result = opt_impl::carve(input, opt.width, targetHeight, optConfig, &timings);
+        else                        result = seq::carve(input, opt.width, targetHeight, &timings);
     } catch (const std::invalid_argument& ex) {
         std::cerr << "Error: " << ex.what() << "\n";
         return kExitBadArgs;

@@ -34,9 +34,15 @@ add_library(seam_omp STATIC src/seam_omp.cpp)
 target_include_directories(seam_omp PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(seam_omp PUBLIC ${OpenCV_LIBS} PRIVATE OpenMP::OpenMP_CXX)
 
+# ---- Optimized OpenMP library (M5) ---------------------------------------------
+# Kept separate from seam_omp so that the basic M2 version stays unchanged for comparison.
+add_library(seam_opt STATIC src/seam_opt.cpp)
+target_include_directories(seam_opt PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(seam_opt PUBLIC ${OpenCV_LIBS} PRIVATE OpenMP::OpenMP_CXX)
+
 # ---- Command-line program ----------------------------------------------------
 add_executable(seam_carving src/main.cpp)
-target_link_libraries(seam_carving PRIVATE seam_seq seam_omp)
+target_link_libraries(seam_carving PRIVATE seam_seq seam_omp seam_opt)
 
 # ---- Tests -------------------------------------------------------------------
 enable_testing()
@@ -57,6 +63,13 @@ target_link_libraries(test_m3 PRIVATE seam_seq seam_omp OpenMP::OpenMP_CXX)
 target_compile_definitions(test_m3 PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
 add_test(NAME test_m3_quick COMMAND test_m3 --quick)
 add_test(NAME test_m3_full COMMAND test_m3)
+
+# M5 tests (tests/test_opt.cpp): optimized version against the sequential baseline.
+add_executable(test_opt tests/test_opt.cpp)
+target_link_libraries(test_opt PRIVATE seam_seq seam_opt OpenMP::OpenMP_CXX)
+target_compile_definitions(test_opt PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
+add_test(NAME test_opt_quick COMMAND test_opt --quick)
+add_test(NAME test_opt_full COMMAND test_opt)
 
 # CLI argument checks: these commands must FAIL (non-zero exit code).
 add_test(NAME cli_missing_args COMMAND seam_carving)
@@ -79,6 +92,15 @@ set_tests_properties(cli_missing_args cli_target_too_wide cli_target_zero cli_mi
                      cli_bad_stage cli_zero_threads
                      PROPERTIES WILL_FAIL TRUE)
 
+add_test(NAME cli_opt_run
+         COMMAND seam_carving --input ${CMAKE_SOURCE_DIR}/tests/data/boat_sea.png
+                              --output ${CMAKE_BINARY_DIR}/cli_ok_opt.png --width 780 --height 590
+                              --mode opt --threads 4 --opt incr,simd --dp-block 8 --csv)
+add_test(NAME cli_bad_opt
+         COMMAND seam_carving --input ${CMAKE_SOURCE_DIR}/tests/data/boat_sea.png
+                              --output ${CMAKE_BINARY_DIR}/cli_fail.png --width 790 --mode opt --opt foo)
+set_tests_properties(cli_bad_opt PROPERTIES WILL_FAIL TRUE)
+
 add_test(NAME cli_omp_run
          COMMAND seam_carving --input ${CMAKE_SOURCE_DIR}/tests/data/boat_sea.png
                               --output ${CMAKE_BINARY_DIR}/cli_ok_omp.png --width 780 --height 590
@@ -94,5 +116,6 @@ add_test(NAME cli_seq_run
 #   ctest --test-dir build -L full
 set_tests_properties(test_seq test_m3_quick cli_missing_args cli_target_too_wide cli_target_zero
                      cli_missing_file cli_bad_stage cli_zero_threads cli_omp_run cli_seq_run
+                     test_opt_quick cli_opt_run cli_bad_opt
                      PROPERTIES LABELS quick)
-set_tests_properties(test_equivalence test_m3_full PROPERTIES LABELS full)
+set_tests_properties(test_equivalence test_m3_full test_opt_full PROPERTIES LABELS full)
