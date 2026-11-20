@@ -1,0 +1,37 @@
+[
+  {
+    "experiment": "m5_ablation",
+    "rounds": 5,
+    "warmup": 1,
+    "seed": 2026,
+    "configurations": 28,
+    "date": "2026-11-20T11:04:19",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "logical_processors": 16,
+    "python": "3.12.3",
+    "executable": "/build/rel/seam_carving",
+    "git_commit": "622b873",
+    "git_dirty": false,
+    "env": {
+      "OMP_SCHEDULE": null,
+      "OMP_PLACES": null,
+      "OMP_PROC_BIND": null,
+      "OMP_WAIT_POLICY": null,
+      "OMP_DYNAMIC": null
+    },
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_COMPILER": "/usr/bin/c++",
+    "OpenMP_CXX_FLAGS": "-fopenmp",
+    "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "compile_flags": [
+      "-O2 -DNDEBUG -std=c++17 -Wall -Wextra",
+      "-O2 -DNDEBUG -std=c++17 -Wall -Wextra -fopenmp"
+    ],
+    "cpu": "AMD Ryzen 7 4800H with Radeon Graphics",
+    "ram_gb": "11.4",
+    "kernel": "6.18.33.2-microsoft-standard-WSL2",
+    "wsl": true,
+    "container": true,
+    "opencv": "4.6.0+dfsg-13.1ubuntu1"
+  }
+]

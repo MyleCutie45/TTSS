@@ -31,7 +31,8 @@ struct OptConfig {
     //     blocks of K rows with ONE barrier per block; every thread also computes a few extra
     //     ("halo") cells so that it does not need its neighbours' results inside a block.
     //     K = 1 is the M2 scheme (one barrier per row).
-    int  dpBlockRows = 0;
+    //     Default 64: fastest region of the M5 measurement (docs/optimization_report.md, section 4.3).
+    int  dpBlockRows = 64;
 
     // O4: run the parallel regions only if the current image has at least this many pixels
     //     (OpenMP "if" clause). Small images are processed by one thread without any start-up cost.
