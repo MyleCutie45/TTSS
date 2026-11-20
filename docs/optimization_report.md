@@ -446,9 +446,20 @@ where the seams are (a seam near the right edge moves few pixels).
 | Mutation test: 10 deliberately wrong versions (energy window too small or too large, missing block barrier, halo one cell short, missing removal barrier, wrong SIMD border, wrong tie rule in SIMD and scalar direction code, one boundary row instead of two, missing last-row flag) | every mutant detected (failed checks: 194–694 per mutant) |
 | Benchmark: SHA-256 of every output vs sequential output | 714 / 714 identical |
 
-ThreadSanitizer was **not** run: GCC's libgomp is not built with TSan instrumentation, so TSan reports
-false data races on every OpenMP barrier. Race freedom is argued in sections 4.2–4.4 and checked
-indirectly by the mutation tests (removing a barrier is detected).
+**ThreadSanitizer** (`scripts/run_sanitizers.sh tsan`, clang 18 + LLVM libomp + Archer, in the container
+with `--security-opt seccomp=unconfined` and `setarch x86_64 -R`, see below):
+
+| Run | Tests | TSan reports |
+| --- | ----- | ------------ |
+| original code, `test_opt --quick` | 4 516 checks, 0 failed | **0 data races**; 4 lock-order warnings inside `libgdal` (image loading of the Ubuntu OpenCV package), no project frame |
+| original code, `test_opt` (full) | 18 636 checks, 0 failed (1 541 s) | **0 data races**; same 4 lock-order warnings |
+| original code, `test_m3` quick + full (M2 code, re-checked on this platform) | 6 801 + 71 580 checks, 0 failed | **0 data races**; same 4 lock-order warnings |
+| mutant: block barrier in `blockedDP` removed (positive control), `test_opt --quick` | 612 failed of 4 516 | **290 data-race reports**, e.g. in the publish step of `computeCumulative` (`src/seam_opt.cpp`) |
+
+TSan only works here with address-space randomization switched off for the test process
+(`setarch x86_64 -R`): with the default randomization of the 6.x kernel every TSan binary crashed at
+start-up (segmentation fault, also `test_m3`, which ran normally in M3). Docker blocks the needed
+`personality` system call unless the container is started with `--security-opt seccomp=unconfined`.
 
 ---
 

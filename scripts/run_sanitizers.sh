@@ -9,11 +9,16 @@
 #
 # Usage (from the repository root inside WSL):
 #   bash scripts/run_sanitizers.sh asan|tsan|tsan-quick|memcheck [source_dir] [build_root]
-#   (tsan-quick runs only "test_m3 --quick"; used for the positive control on mutant M1:
+#   (tsan-quick runs only the --quick tests; used for the positive controls on mutant M1 and on the
+#    M5 mutant without the blocked-DP barrier:
 #    bash scripts/run_sanitizers.sh tsan-quick build/mutants/M1)
 # test_equivalence is not run under TSan: it is very slow there (> 40 min) and test_m3 covers the
 # same stage variants, thread counts and schedules.
-# Requires: g++, clang, libomp-dev, cmake, ninja-build, libopencv-dev, valgrind.
+# Requires: g++, clang, libomp-dev, cmake, ninja-build, libopencv-dev, valgrind (Ubuntu 24.04 also needs
+# libclang-rt-18-dev for -fsanitize=thread).
+# Newer kernels (6.x, e.g. Docker Desktop / WSL2 2026): TSan binaries crash at start-up with the default
+# address-space randomization. Run with randomization off:  setarch x86_64 -R bash scripts/run_sanitizers.sh tsan
+# In Docker this needs: docker run --security-opt seccomp=unconfined ... (personality system call).
 set -u
 MODE=${1:?usage: run_sanitizers.sh asan|tsan|memcheck [source_dir] [build_root]}
 SRC=$(realpath "${2:-.}")
@@ -24,7 +29,7 @@ ARCHER=$(ls /usr/lib/llvm-*/lib/libarcher.so 2>/dev/null | head -1)
 configure() {  # $1 = compiler, $2 = extra flags
     cmake -S "$SRC" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DCMAKE_CXX_COMPILER="$1" -DCMAKE_CXX_FLAGS="$2" >/dev/null &&
-    cmake --build "$BUILD" --target test_seq test_equivalence test_m3 >/dev/null
+    cmake --build "$BUILD" --target test_seq test_equivalence test_m3 test_opt >/dev/null
 }
 
 # $1 = label, rest = command; prints the summary line and the first sanitizer report line.
@@ -45,6 +50,7 @@ case "$MODE" in
     export ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 UBSAN_OPTIONS=print_stacktrace=1
     runtest test_seq          "$BUILD/test_seq"
     runtest test_m3_full      "$BUILD/test_m3"
+    runtest test_opt_full     "$BUILD/test_opt"            # M5 optimized version
     runtest test_equivalence  "$BUILD/test_equivalence"
     ;;
   tsan|tsan-quick)
@@ -57,8 +63,10 @@ case "$MODE" in
     export OPENCV_FOR_THREADS_NUM=1
     export TSAN_OPTIONS="halt_on_error=0:history_size=4:suppressions=$(realpath "$(dirname "$0")/../tests/tsan.supp"):external_symbolizer_path=$SYMB"
     runtest test_m3_quick     "$BUILD/test_m3" --quick
+    runtest test_opt_quick    "$BUILD/test_opt" --quick    # M5 optimized version
     if [ "$MODE" = tsan ]; then
         runtest test_m3_full  "$BUILD/test_m3"
+        runtest test_opt_full "$BUILD/test_opt"
     fi
     ;;
   memcheck)
