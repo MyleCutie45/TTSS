@@ -14,9 +14,10 @@
 
 ## Current Project Status
 
-- Current milestone: M4 finished (branch `m4-benchmark`; M3 on `m3-testing`); next: M5
-- Overall status: sequential + OpenMP versions bit-exact equal (M3; all 1191 benchmark runs also gave identical outputs); OpenMP synchronization overhead on Windows makes the parallel DP slow (M4: measured, not present under Linux); best measured speedup 1.79× (DP sequential, 7680×4320)
-- Last updated: 2026-11-19
+- Current milestone: M5 finished (`docs/optimization_report.md`); M6 in progress
+- Overall status: three versions (sequential, basic OpenMP, optimized OpenMP), all bit-exact equal (M3 tests, `test_opt`, 714/714 M5 benchmark outputs); optimized version 4.4–4.8× faster than sequential with 8 threads (M5, Ryzen 7 4800H, Linux container); M4 numbers (i7-1065G7, Windows) are from a different machine
+- Build environment on the M5/M6 machine: Docker Linux container (`docker/Dockerfile`), because Windows Smart App Control blocks locally built executables
+- Last updated: 2026-11-20
 
 ## Milestone Progress
 
@@ -27,8 +28,8 @@
 | M2        | OpenMP Implementation         | Completed (correct; parallel DP slower than sequential on this platform) |
 | M3        | Correctness Testing           | Completed (2026-11-19, `docs/testing_report.md`) |
 | M4        | Performance Benchmarking      | Completed (2026-11-19, `docs/benchmark_report.md`) |
-| M5        | Performance Optimization      | Not started |
-| M6        | Final Report and Presentation | Not started |
+| M5        | Performance Optimization      | Completed (2026-11-20, `docs/optimization_report.md`) |
+| M6        | Final Report and Presentation | In progress |
 
 ---
 
@@ -1835,3 +1836,266 @@ This section must always reflect the latest project state.
 
 - Decide whether anything from the local versions of the four duplicated docs should be merged into the upstream versions.
 - Status sections at the top of WORKLOG reflect upstream state.
+
+### [2026-11-20 09:00] – Push main; toolchain blocked by Smart App Control; Docker build environment
+
+**Milestone:** M5 (preparation)
+
+**Status:** Completed.
+
+#### 1. Objective
+
+The user asked to push the local `main` directly to the shared `main` on GitHub and then to do the
+milestones the contributors have not done yet: **M5** (Performance Optimization) and **M6** (Final
+Report and Presentation). M5 needs real builds, tests and benchmarks, so a working C++/OpenCV toolchain
+on this machine was needed first.
+
+#### 2. Work Performed
+
+- Pushed `main` (`bcad29c`, merge of the local pre-M1 work) to `origin/main`. Direct push to `main`
+  authorized by the user.
+- Installed MSYS2 + UCRT64 GCC 16.2 + OpenCV (user's choice). Every locally built program, and even the
+  MSYS2 compiler (`cc1plus.exe`), was blocked by Windows **Smart App Control** ("Permission denied",
+  exit code 126/127; "CreateProcess: No such file").
+- Decision: Smart App Control stays on (switching it off cannot be undone without reinstalling Windows).
+  All M5 builds, tests and benchmarks run in a Linux container instead: `docker/Dockerfile`
+  (Ubuntu 24.04, GCC 13.3, CMake, Ninja, OpenCV 4.6, Python 3 + numpy/matplotlib). Docker Desktop runs it
+  on the WSL2 kernel.
+
+#### 3. Technical Explanation
+
+Smart App Control lets only signed or "known good" executables start. A freshly compiled `.exe` has no
+reputation, so Windows refuses to run it. A Linux binary inside a container is not a Windows executable
+and is not checked. The source tree is mounted into the container (`-v <repo>:/src`); the build
+directory lives in a Docker volume (`ttss-build`) so it is not mixed with Windows files.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| docker/Dockerfile | Created | Linux build and benchmark environment (committed in `e18cfe0`) |
+
+#### 5. Commands Executed
+
+```bash
+git push origin main
+docker build -t ttss-dev docker
+MSYS_NO_PATHCONV=1 docker run --rm -v "D:/Projects/TTSS:/src" -v ttss-build:/build ttss-dev bash
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| MSYS2 build of `seam_carving` | runs | blocked by Smart App Control | Failed (environment) |
+| container: `cmake` + `ctest` (Release, M1–M4 tests, before M5 code) | all pass | 10/10 passed | Passed |
+
+#### 7. Problems Encountered
+
+- Smart App Control (see above). Also a wrong-CRT link error when mixing `-L C:/msys64/ucrt64/lib`
+  with the WinLibs GCC; irrelevant after the move to Docker.
+- The M5 machine (AMD Ryzen 7 4800H) is not the M4 machine (Intel i7-1065G7, Windows). M5 numbers are
+  therefore compared only with sequential/basic runs made in the same M5 session.
+
+#### 8. Decisions and Reasoning
+
+Docker on WSL2 instead of disabling a security feature. Consequence: M5 is measured on Linux, where
+OpenMP barriers are cheap (M4 section 6 showed the Windows runtime is the slow part).
+
+#### 9. Remaining Tasks
+
+M5 implementation, benchmark and report; M6.
+
+#### 10. Next Step
+
+Implement the optimized version.
+
+### [2026-11-20 18:00] – M5: optimized OpenMP version (`seam_opt`), tests, mutation check, sanitizers
+
+**Milestone:** M5
+
+**Status:** Completed (commits `e18cfe0`, `622b873`).
+
+#### 1. Objective
+
+Implement a third, separate version (`--mode opt`) that removes the bottlenecks measured in M4, keep the
+sequential and basic OpenMP versions unchanged, and make every optimization switchable so its effect can
+be measured alone.
+
+#### 2. Work Performed
+
+- `include/seam_opt.h`, `src/seam_opt.cpp` (namespace `opt_impl`), `OptConfig` with one switch per
+  optimization:
+  - **O1 incremental energy** (`incrementalEnergy`): energy computed once; after each seam only columns
+    s−1 and s of every row are recomputed, the rest is shifted with the image.
+  - **O2 SIMD kernels** (`simdKernels`): border columns handled separately, interior loops branch-free
+    with `#pragma omp simd`.
+  - **O3 blocked parallel DP** (`dpBlockRows` = K): one `omp parallel` region, one `omp barrier` per K
+    rows, each thread computes a "halo" trapezoid `[a-(K-1-j), b+(K-1-j))` in private rows.
+  - **O4 size threshold** (`parallelMinPixels`): `if(par)` clause on every parallel region.
+  - **O5 compact memory** (`compactMemory`): 16-bit energy, rolling two-row M, 1-byte direction map
+    for the backtracking, last row of M kept separately; the blocked version uses two shared boundary
+    rows alternately (double buffering).
+- `src/main.cpp`: `--mode opt`, `--opt incr,simd,compact|none`, `--dp-block K`, `--par-min-pixels N`;
+  static schedule unless `OMP_SCHEDULE` is set.
+- `tests/test_opt.cpp` + ctest `test_opt_quick` / `test_opt_full`, CLI tests `cli_opt_run`,
+  `cli_bad_opt`.
+- `scripts/run_bench.py`: mode `opt`, experiments `m5_ablation`, `m5_block`, `m5_threads`,
+  `m5_threads_8k`, `m5_misc`; `scripts/run_m5_bench.sh` runs all of them in the container.
+
+#### 3. Technical Explanation
+
+See `docs/optimization_report.md` section 4 (one subsection per optimization: bottleneck, idea, OpenMP
+directives, synchronization, possible races, test, measurement). Key synchronization points:
+
+- `removeSeam`: the implicit barrier of the first `omp for` separates the shift of all rows from the
+  energy recomputation that reads rows y−1 and y+1 (otherwise a race condition).
+- `blockedDP`: explicit `omp barrier` after every block; before it each thread writes only its own
+  columns of the shared boundary row, after it all threads read the full row.
+- Compact blocked DP: block k reads boundary `k % 2` and writes `(k+1) % 2`, so a row is never read and
+  written inside the same block.
+- Private rows are `thread_local`, so no thread ever writes another thread's buffer.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| include/seam_opt.h | Created | `OptConfig`, `opt_impl` interface |
+| src/seam_opt.cpp | Created | Optimized version (460 lines) |
+| src/main.cpp | Modified | `--mode opt` and its options |
+| CMakeLists.txt | Modified | library `seam_opt`, `test_opt`, CLI tests |
+| tests/test_opt.cpp | Created | 5 test groups vs `seq::` |
+| scripts/run_bench.py | Modified | mode opt, M5 experiments, container metadata |
+| scripts/run_m5_bench.sh | Created | M5 benchmark driver |
+
+#### 5. Commands Executed
+
+```bash
+# inside the container (docker run --rm -v "D:/Projects/TTSS:/src" -v ttss-build:/build ttss-dev ...)
+cmake -S /src -B /build/rel -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build /build/rel
+ctest --test-dir /build/rel
+# ASan + UBSan build (Debug, -fsanitize=address,undefined -fno-omit-frame-pointer), then test_opt (full)
+# mutation check: 10 deliberately wrong copies of seam_opt.cpp, each built and run with test_opt --quick
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| `test_opt --quick` | 0 failed | 4516 checks, 0 failed | Passed |
+| `test_opt` (full) | 0 failed | 18636 checks, 0 failed | Passed |
+| `ctest` (all, Release) | all pass | 16/16 passed (524 s) | Passed |
+| ASan + UBSan, `test_opt` full | no report | 18636 checks, 0 failed, no report | Passed |
+| Mutation check (energy window too small / too large, no block barrier, halo one cell short, no removal barrier, wrong SIMD border, wrong tie rule SIMD / scalar, single boundary row, missing last-row flag) | every mutant detected | all detected (194–694 failed checks each) | Passed |
+
+#### 7. Problems Encountered
+
+- Exploration showed that before O5 the parallel DP was not faster than the sequential DP even on Linux:
+  the DP is limited by memory traffic. O5 made the blocked DP scale (measured in the next entry).
+- With O1 the removal stage becomes about 2× slower (it also shifts the energy map); O5 halves that cost.
+- ThreadSanitizer not run (GCC libgomp is not TSan-instrumented, so TSan reports false races).
+
+#### 8. Decisions and Reasoning
+
+- Third version in its own files; `seq` and `omp_impl` untouched (CLAUDE.md rule 4).
+- Minimum search and backtracking stay sequential (M4: parallel minimum search 8–100× slower).
+- Every optimization has its own switch so that the ablation benchmark can measure it alone.
+
+#### 9. Remaining Tasks
+
+Official benchmark, choice of the default K, optimization report.
+
+#### 10. Next Step
+
+Run `scripts/run_m5_bench.sh` on an idle machine.
+
+### [2026-11-20 19:30] – M5: benchmark run, default K = 64, optimization report
+
+**Milestone:** M5
+
+**Status:** Completed.
+
+#### 1. Objective
+
+Measure every optimization against the previous step, keep only those with evidence, and write
+`docs/optimization_report.md`.
+
+#### 2. Work Performed
+
+- Ran `scripts/run_m5_bench.sh` in the container (2026-11-20 11:04–12:18 UTC, 74 min): 5 experiments,
+  714 runs, 1 warm-up + 5 measured runs per configuration (7680×4320: 3), random order.
+- Ran `scripts/membw.cpp` twice in the container → `results/m5_membw.txt`.
+- `scripts/analyze_m5.py`: tables `results/m5_summary.md`, figures `docs/figures/m5_ablation_*.png`,
+  `m5_dp_block.png`, `m5_speedup_threads.png`. After looking at the figures: the DP-block plot was
+  changed from a log axis to "DP time / sequential DP time" on a linear axis, and the legend of the
+  speedup plot was moved out of the data area.
+- Default `--dp-block` / `OptConfig::dpBlockRows` changed from 0 to **64** (measured optimum region
+  K = 32–64).
+- Wrote `docs/optimization_report.md` (final).
+
+#### 3. Technical Explanation
+
+Methodology, environment and analysis: `docs/optimization_report.md` sections 2–5. The two main
+findings: (1) O3 helps only together with O5, because the DP working set must fit into the L3 cache;
+(2) the remaining limit is the seam removal, which moves ≈ 18 GB/s at 7680×4320 with 8 threads, close
+to the measured copy bandwidth of 19.1–19.6 GB/s (calculation).
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| results/m5_{ablation,block,threads,threads_8k,misc}.{csv,meta.json,stdout.txt} | Created | Raw benchmark data |
+| results/m5_membw.txt | Created | Memory bandwidth reference (2 runs) |
+| results/m5_summary.md | Created | Generated tables |
+| docs/figures/m5_*.png | Created | 4 generated figures |
+| scripts/analyze_m5.py | Created | Analysis script |
+| docs/optimization_report.md | Created | M5 report |
+| include/seam_opt.h, src/main.cpp | Modified | Default K = 64 |
+| WORKLOG.md | Modified | These entries, status |
+
+#### 5. Commands Executed
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "D:/Projects/TTSS:/src" -v ttss-build:/build ttss-dev bash scripts/run_m5_bench.sh
+MSYS_NO_PATHCONV=1 docker run --rm -v "D:/Projects/TTSS:/src" ttss-dev python3 scripts/analyze_m5.py
+# in the container: g++ -std=c++17 -O2 -fopenmp scripts/membw.cpp -o /tmp/membw; /tmp/membw (twice)
+# after the default change: cmake --build /build/rel && ctest --test-dir /build/rel -L quick
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| quick ctest before the benchmark | pass | 13/13 passed | Passed |
+| every benchmark run: exit code, output hash = seq | 0 / identical | 714/714 exit 0, 714/714 identical | Passed |
+| quick ctest after default K = 64 | pass | 13/13 passed | Passed |
+| `--mode opt --threads 8` default configuration | `dpblock64` | `incr+simd+compact+dpblock64+thr0` | Passed |
+
+Measured results (medians, Ryzen 7 4800H, container, GCC 13.3 `-O2 -fopenmp`):
+
+| image | seq (s) | opt, 8 threads (s) | speedup | basic omp best |
+| ----- | ------: | -----------------: | ------: | -------------: |
+| 512×512, −20 % | 0.066 | 0.020 | 3.36× | 1.63× |
+| 1920×1080, −20 % | 2.213 | 0.477 | 4.64× | 1.61× |
+| 3840×2160, −20 % | 16.388 | 3.721 | 4.40× | 1.48× |
+| 7680×4320, −10 % | 66.038 | 14.075 | 4.69× | 1.55× |
+
+#### 7. Problems Encountered
+
+- 16 threads: slower than 8 everywhere; on 512×512 very unstable (0.043–0.337 s).
+- "opt with all optimizations off" is 4 % slower than the basic version at 1920×1080 (cause unknown).
+- Size threshold O4 brought no gain at ≤ 12 threads; left as an option, default off.
+- Schedules static / static,1 / dynamic,16 / guided: within the noise; static kept.
+
+#### 8. Decisions and Reasoning
+
+Kept: O1, O2, O3 (K = 64), O5, all on by default. O4 option only. Reasons and numbers:
+`docs/optimization_report.md` section 6.
+
+#### 9. Remaining Tasks
+
+M6 (final report, README, slide outline, demo script, Q&A); commit and push.
+
+#### 10. Next Step
+
+M6.

@@ -32,7 +32,7 @@ struct Options {
     std::string stages = "energy,dp,min,removal";
     bool persistentDP = false;
     std::string opt = "incr,simd,compact";  // --mode opt: enabled optimizations ("none" = all off)
-    int dpBlock = 0;                 // --mode opt: DP block rows (0 = sequential DP)
+    int dpBlock = 64;                // --mode opt: DP block rows (0 = sequential DP; 64 = measured best)
     long long parMinPixels = 0;      // --mode opt: no parallel region below this many pixels
     bool csv = false;
 };

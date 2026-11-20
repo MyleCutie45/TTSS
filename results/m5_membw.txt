@@ -1,0 +1,35 @@
+# Memory bandwidth reference (scripts/membw.cpp) for M5, measured 2026-11-20 19:21 on the M5 benchmark machine
+# AMD Ryzen 7 4800H, Docker Linux container (Ubuntu 24.04, WSL2 kernel 6.18), GCC 13.3.0
+# Build: g++ -std=c++17 -O2 -fopenmp scripts/membw.cpp -o /tmp/membw   (inside the container)
+# Two arrays of 512 MB; best of 5 repetitions per test; GB = 1e9 bytes; copy counts read + write bytes.
+# Run right after the M5 benchmark, no other benchmark running.
+# run 1
+array size 512 MB each, checksum 4697620480
+threads,test,GB_per_s
+1,read,14.6
+1,write,10.0
+1,copy,14.8
+2,read,24.1
+2,write,14.1
+2,copy,19.2
+4,read,34.1
+4,write,14.0
+4,copy,20.3
+8,read,33.6
+8,write,12.7
+8,copy,19.1
+# run 2
+array size 512 MB each, checksum 4697620480
+threads,test,GB_per_s
+1,read,13.7
+1,write,9.6
+1,copy,14.4
+2,read,23.1
+2,write,14.1
+2,copy,19.1
+4,read,34.1
+4,write,13.9
+4,copy,20.1
+8,read,34.8
+8,write,12.7
+8,copy,19.6
