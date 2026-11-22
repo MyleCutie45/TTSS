@@ -2253,3 +2253,152 @@ file tests/data/*.png        # image sizes for the demo commands (800x533, 800x6
 #### 10. Next Step
 
 Commit and push to `main`; rehearse the demo on the presentation machine.
+
+### [2026-11-21 08:30] – M6: presentation slides built from the outline
+
+**Milestone:** M6
+
+**Status:** Completed (deck published; not yet rehearsed, not yet shared with the team).
+
+#### 1. Objective
+
+Turn `docs/presentation/slides_outline.md` into an actual slide deck.
+
+#### 2. Work Performed
+
+- Built a 14-slide deck (English, 16:9) as a private claude.ai Slides artifact:
+  https://claude.ai/artifact/6ntUuPfdR5ShMNDs8kCu2h. It follows the outline slide by slide and has
+  speaker notes on every slide.
+- Images: our own program's output on `tests/data/person_desert.png` (800 → 560 px, seam carved), plus a
+  scaled and a centre-cropped version made with Pillow for comparison; 5 figures from `docs/figures/`
+  (M4: `speedup_vs_threads_main_nodp.png`, `dp_time_per_row.png`; M5: `m5_ablation_1920x1080.png`,
+  `m5_dp_block.png`, `m5_speedup_threads.png`).
+- New diagram (SVG) of the blocked DP: thread 2's own columns, the shrinking halo for K = 4, and the
+  single barrier per block.
+- All numbers on the slides are copied from `docs/final_report.md` / `results/*summary.md`; the step-chain
+  table includes the "optimized, all off" row (1.435 s) so the chain starts where the measurement starts.
+
+#### 3. Technical Explanation
+
+No code change. The deck lives on claude.ai, not in the repository; it can be exported to PowerPoint or
+PDF from its Share menu.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| claude.ai artifact (14 slides) | Created | Presentation deck |
+| WORKLOG.md | Modified | This entry |
+
+#### 5. Commands Executed
+
+```bash
+docker run ... seam_carving --input tests/data/person_desert.png --output carved.png --width 560 --mode opt --threads 8
+docker run ... python3 (Pillow): scaled.png (resize to 560x533), cropped.png (centre 560 px)
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| Rendered preview of every slide | no overflow | not run: no Playwright/Chromium install on this machine; text widths and heights estimated by hand, 4 slides adjusted (number sizes on slides 5 and 14, figure and card size on slide 12, table width on slide 10) | Not run |
+
+#### 7. Problems Encountered
+
+Layout could not be checked in a rendered preview; the team should page through the deck once and report
+any slide whose text overflows.
+
+#### 8. Decisions and Reasoning
+
+- English, to match the report and the outline.
+- Light background matching the figure background (`#fcfcfb`) so charts sit on the slides without boxes;
+  blue = optimized / good, orange = barriers / slow, as in the figures.
+
+#### 9. Remaining Tasks
+
+Fill in the placeholders on the cover (`[Team members] · [Course code] · [Date]`); share the deck with the
+team; rehearse with the demo script.
+
+#### 10. Next Step
+
+Page through the deck, fill in the cover, rehearse.
+
+---
+
+### [2026-11-21 10:00] – M6: LaTeX report and Beamer slides
+
+**Milestone:** M6
+
+**Status:** Completed (both PDFs compile without errors; placeholders for team names, course and date not filled in).
+
+#### 1. Objective
+
+Provide the final report and the presentation as LaTeX sources (report + Beamer slides) in addition to the
+Markdown report and the claude.ai deck.
+
+#### 2. Work Performed
+
+- `docs/latex/report.tex`: LaTeX version of `docs/final_report.md` (all 15 sections, all tables and
+  figures, references as `thebibliography`). Additions: comparison figure (scaled / cropped / carved),
+  the 4 x 4 worked example as a table, the stage pipeline and the blocked-DP halo as TikZ drawings.
+- `docs/latex/slides.tex`: 14 Beamer slides (16:9, metropolis theme) following
+  `docs/presentation/slides_outline.md`; halo diagram and pipeline in TikZ, charts from `docs/figures/`.
+- `scripts/make_latex_figures.py`: makes `original/scaled/cropped/seams.png`; `carved.png` is the
+  output of our own program (`--mode opt --width 560 --threads 8`). The red seams are drawn with a small
+  NumPy re-implementation of the same rules (illustration only, not used for any result).
+- Compilation with the `texlive/texlive:latest` Docker image (TeX Live 2026); no LaTeX installed on Windows.
+- Pages rendered to PNG with Ghostscript and checked visually; fixed table/figure overflow on slides 3, 5,
+  6, 12 and in the report (pipeline figure, strategy table, M2 table).
+
+#### 3. Technical Explanation
+
+No code change. All numbers are copied from `docs/final_report.md`; nothing was re-measured.
+
+#### 4. Files Created or Modified
+
+| File | Action | Description |
+| ---- | ------ | ----------- |
+| docs/latex/report.tex, report.pdf | Created | LaTeX report (16 pages) |
+| docs/latex/slides.tex, slides.pdf | Created | Beamer slides (14 pages) |
+| docs/latex/figures/*.png | Created | Comparison images |
+| docs/latex/README.md, .gitignore | Created | Build instructions; ignore LaTeX by-products |
+| scripts/make_latex_figures.py | Created | Generates comparison images |
+| WORKLOG.md | Modified | This entry |
+
+#### 5. Commands Executed
+
+```bash
+docker pull texlive/texlive:latest
+MSYS_NO_PATHCONV=1 docker run --rm -v "D:/Projects/TTSS:/src" -v ttss-build:/build -w /src ttss-dev bash -c \
+  '/build/rel/seam_carving --input tests/data/person_desert.png --output docs/latex/figures/carved.png --width 560 --mode opt --threads 8 && python3 scripts/make_latex_figures.py'
+MSYS_NO_PATHCONV=1 docker run --rm -v "D:/Projects/TTSS:/src" -w /src/docs/latex texlive/texlive:latest latexmk -pdf report.tex slides.tex
+gs -sDEVICE=png16m -r60 ... (page previews, in the scratchpad)
+```
+
+#### 6. Testing and Results
+
+| Test | Expected Result | Actual Result | Status |
+| ---- | --------------- | ------------- | ------ |
+| `latexmk -pdf report.tex` | PDF, no errors | 16 pages, 0 errors, 0 undefined references | Passed |
+| `latexmk -pdf slides.tex` | PDF, no errors | 14 pages, 0 errors; 3 small overfull boxes (≤ 24 pt) on slides 1, 2, 11, not visible in the render | Passed |
+| Visual check of rendered pages | no clipped text | all 14 slides and selected report pages checked | Passed |
+| carve 800x533 → 560x533 (opt, 8 threads) | output written | 240 seams, 0.170 s (single run, illustration only, not a benchmark) | Passed |
+
+#### 7. Problems Encountered
+
+- Beamer frames do not accept `#` inside a TikZ style; the style was moved to `\tikzset` in the preamble.
+- `sed` with `\u` in the replacement turned `\usepackage` into `\Sepackage`; fixed by hand.
+
+#### 8. Decisions and Reasoning
+
+- English, same as the Markdown report (user's choice).
+- pdfLaTeX + `lmodern` (no XeLaTeX font requirements), bibliography inline (no BibTeX run needed),
+  so the sources also compile on Overleaf unchanged.
+
+#### 9. Remaining Tasks
+
+Fill in `[Team members]`, `[Course code]`, `[University]`, `[Date]` in both `.tex` files; rehearse.
+
+#### 10. Next Step
+
+Fill in the placeholders, rebuild, rehearse with `docs/presentation/demo_script.md`.
