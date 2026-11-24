@@ -2402,3 +2402,75 @@ Fill in `[Team members]`, `[Course code]`, `[University]`, `[Date]` in both `.te
 #### 10. Next Step
 
 Fill in the placeholders, rebuild, rehearse with `docs/presentation/demo_script.md`.
+
+---
+
+### [2026-11-24 14:10] – M6: fill submission placeholders, Vietnamese support, Author Contributions
+
+**Milestone:** M6
+
+**Status:** Completed (both PDFs rebuilt without errors; placeholders filled; Vietnamese names render).
+
+#### 1. Objective
+
+Fill the cover placeholders in the LaTeX report and slides with the real team, course, institute and date,
+add an Author Contributions section mapping each member to the milestones they owned, and rebuild the PDFs
+for GitHub submission.
+
+#### 2. Work Performed
+
+- `report.tex` / `slides.tex`: replaced `[Team members]`, `[Course code]`, `[University]`, `[Date]` with
+  the three authors (Đỗ Tùng Dương, Hoàng Trọng Đại, Lê Quang Huy), `MAT3148 – Tính Toán Song Song
+  (Parallel Computing)`, `VNU University of Science (VNU-HUS)`, `26/11/2026`.
+- Added Vietnamese glyph support: `\usepackage[T1,T5]{fontenc}` (T5 default, carries the Vietnamese
+  accented letters) plus `\usepackage[vietnamese,main=english]{babel}` (keeps English captions).
+- `report.tex`: new unnumbered `\section*{Author Contributions}` (with `\addcontentsline`) after the
+  Conclusion: Dương = M1 + M3 (sequential + tests), Đại = M2 + M5 (OpenMP + optimization),
+  Huy = M0 + M4 + M6 (setup + benchmarking + report/slides, repo maintainer).
+- Copied the rebuilt PDFs to `C:\Users\lequa\Downloads\TTSS_submission\` for upload.
+
+#### 3. Files Modified
+
+- `docs/latex/report.tex`, `docs/latex/slides.tex` (sources)
+- `docs/latex/report.pdf`, `docs/latex/slides.pdf` (rebuilt)
+- `WORKLOG.md`
+
+#### 4. Technical Decisions
+
+- First attempt used `[T5,T1]` (T1 last = default); pdfLaTeX then raised
+  `! LaTeX Error: Command \ocircumflex/\uhorn/\ohorn unavailable in encoding T1` (12 errors) because the
+  Vietnamese letters ô/ư/ơ are only in T5. Switching to `[T1,T5]` makes T5 the default encoding and the
+  errors disappear. Kept pdfLaTeX (no XeLaTeX switch) so the sources still build on Overleaf unchanged.
+
+#### 5. Commands Executed
+
+```
+# Docker daemon was down; started Docker Desktop, waited for the daemon, then:
+docker run --rm -v "D:/Projects/TTSS:/src" -w /src/docs/latex texlive/texlive:latest \
+    latexmk -pdf -interaction=nonstopmode report.tex slides.tex
+```
+
+#### 6. Testing and Results
+
+| Test | Expected | Actual | Status |
+| ---- | -------- | ------ | ------ |
+| latexmk report.tex + slides.tex (final `[T1,T5]`) | 0 errors | `LATEXMK_EXIT=0`, both PDFs written 2026-11-24 14:07 | Passed |
+| Vietnamese encoding check | 0 missing-char / encoding errors | 0 (was 12 with `[T5,T1]`) | Passed |
+| Placeholders remaining | 0 | `grep -c "Team members"` = 0 in both files | Passed |
+| Visual confirmation of names in PDF | names legible | not run: no `pdftotext`/poppler in the texlive image; relied on the clean log (0 missing-char warnings) | Not run |
+
+#### 7. Problems Encountered
+
+- Docker Desktop daemon was not running; a first launch did not persist. A second launch stayed up and the
+  daemon came online after ~60 s.
+- `pdftotext` is not in the `texlive/texlive` image, so the rendered names were not text-extracted; the team
+  should eyeball the report cover and the slide title page once.
+
+#### 8. Remaining Tasks
+
+- Visually confirm the Vietnamese names on the report cover and slide 1.
+- Commit and push report.tex, slides.tex, the two PDFs and WORKLOG.md to GitHub.
+
+#### 9. Next Step
+
+Commit the submission files and push to GitHub.

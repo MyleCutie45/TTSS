@@ -2,9 +2,10 @@
 % Build:  latexmk -pdf report.tex   (run inside docs/latex/)
 \documentclass[11pt,a4paper]{article}
 
-\usepackage[T1]{fontenc}
+\usepackage[T1,T5]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
+\usepackage[vietnamese,main=english]{babel}
 \usepackage{microtype}
 \usepackage[margin=2.5cm]{geometry}
 \usepackage{amsmath,amssymb}
@@ -48,8 +49,10 @@
 
 \title{\textbf{Parallel Implementation of Seam Carving for\\Content-Aware Image Resizing using OpenMP}\\[6pt]
 \large Final Project Report -- Parallel Computing}
-\author{[Team members]\\[2pt]\small [Course code] -- [University]}
-\date{[Date]}
+\author{Đỗ Tùng Dương \quad Hoàng Trọng Đại \quad Lê Quang Huy\\[2pt]
+\small MAT3148 -- Tính Toán Song Song (Parallel Computing)\\
+\small VNU University of Science (VNU-HUS)}
+\date{26/11/2026}
 
 \begin{document}
 \maketitle
@@ -832,6 +835,30 @@ Future work:
   \item Hardware-counter measurements (cache misses, bandwidth) to confirm the memory-traffic calculations.
   \item GPU implementation of the blocked DP, where the halo technique is commonly used.
 \end{enumerate}
+
+% ---------------------------------------------------------------------------
+\section*{Author Contributions}
+\addcontentsline{toc}{section}{Author Contributions}
+
+The project was divided along the seven project milestones (M0--M6) so that no single member
+owned the whole parallel implementation or the whole write-up.
+
+\begin{description}[leftmargin=2.2cm, style=nextline, itemsep=4pt]
+  \item[Đỗ Tùng Dương] \textbf{M1 -- Sequential implementation} and \textbf{M3 -- Correctness
+    validation}: the baseline energy map, dynamic-programming seam search and seam removal
+    (\texttt{src/seam\_seq.cpp}), and the full test suite including the sequential-versus-parallel
+    equivalence checks (\texttt{tests/}).
+  \item[Hoàng Trọng Đại] \textbf{M2 -- OpenMP parallelization} and \textbf{M5 -- Performance
+    optimization}: the parallel energy map, DP and seam removal (\texttt{src/seam\_omp.cpp}), and the
+    optimized version with incremental energy, blocked DP and compact memory layout
+    (\texttt{src/seam\_opt.cpp}).
+  \item[Lê Quang Huy] \textbf{M0 -- Project setup}, \textbf{M4 -- Performance benchmarking} and
+    \textbf{M6 -- Report and presentation}: the build system and project plan, the reproducible
+    benchmark harness and result analysis (\texttt{scripts/}, \texttt{results/}), and this report and
+    the slides. Repository maintainer.
+\end{description}
+
+All members reviewed the final report and the benchmark results together.
 
 % ---------------------------------------------------------------------------
 \begin{thebibliography}{9}
