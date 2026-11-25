@@ -2544,3 +2544,19 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "D:/Projects/TTSS:/src" -w /src/docs/latex
 - Text inside the chart PNGs (`docs/figures/*.png`: axis labels, legends) is still in English; changing it requires regenerating the plots.
 - `docs/presentation/slides_outline.md` is still in English.
 - Changes not committed yet.
+
+### [2026-11-25] – Submission package (links file, source zip)
+
+- Committed and pushed the Vietnamese slides (`8fcb09a`).
+- Created, outside the repository, `C:\Users\lequa\Downloads\Nop_TTSS_Nhom7\`:
+  - `Link_TTSS_Nhom7.docx` – two hyperlinks in the format of Group 6 (report PDF on GitHub, source code tree). Generated with python-docx (installed with pip).
+  - `TTSS_Nhom7_source.zip` – `git archive` of commit `8fcb09a` (138 files, tracked files only, no build outputs).
+  - `BaoCao_TTSS_Nhom7.pdf` – copy of the report.
+- Checked: repository, report PDF and slides PDF URLs all return HTTP 200.
+
+### [2026-11-25] – Remove AI co-author trailers from main history
+
+- At the student's request, removed every `Co-Authored-By: Claude ...` trailer from the commit messages on `main` (22 commits) with `git filter-branch --msg-filter`, so GitHub no longer lists an extra contributor. Authors, dates and file contents are unchanged; commit hashes changed.
+- Local backup of the old history: tag `backup-before-trailer-removal`.
+- Pushed with `git push --force-with-lease origin main`.
+- Branches `local-m0-work` and `m4-benchmark` on GitHub were not rewritten (not the default branch).
