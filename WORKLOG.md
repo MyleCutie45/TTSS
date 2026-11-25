@@ -2474,3 +2474,34 @@ docker run --rm -v "D:/Projects/TTSS:/src" -w /src/docs/latex texlive/texlive:la
 #### 9. Next Step
 
 Commit the submission files and push to GitHub.
+
+### [2026-11-25] – Submission links: final report PDF in the repository
+
+#### 1. Objective
+
+Provide two submission links in the same format as Group 6: one to the report, one to the source code.
+
+#### 2. Work Performed
+
+- Copied the latest final report (`main.pdf` from the Downloads folder, 45 pages, cover page "Nhóm 7") to `docs/BaoCao_TTSS_Nhom7.pdf`.
+- Committed and pushed it, so the report has a public GitHub URL.
+
+#### 3. Files Created or Modified
+
+| File | Action |
+|---|---|
+| docs/BaoCao_TTSS_Nhom7.pdf | Created (copy of the submitted report) |
+| WORKLOG.md | Modified |
+
+#### 4. Links
+
+- Report: https://github.com/MyleCutie45/TTSS/blob/main/docs/BaoCao_TTSS_Nhom7.pdf
+- Source code: https://github.com/MyleCutie45/TTSS/tree/main
+
+#### 5. Testing and Results
+
+No code changed; no build or tests run. The first page of the PDF was checked with pypdf (title, group 7, members).
+
+#### 6. Remaining Tasks
+
+- If the report PDF is rebuilt, replace `docs/BaoCao_TTSS_Nhom7.pdf` and push again (the link stays the same).
