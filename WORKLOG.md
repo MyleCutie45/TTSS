@@ -2505,3 +2505,42 @@ No code changed; no build or tests run. The first page of the PDF was checked wi
 #### 6. Remaining Tasks
 
 - If the report PDF is rebuilt, replace `docs/BaoCao_TTSS_Nhom7.pdf` and push again (the link stays the same).
+
+### [2026-11-25] – Slides translated to Vietnamese
+
+#### 1. Objective
+
+The student asked for the presentation slides in Vietnamese.
+
+#### 2. Work Performed
+
+- Translated all 14 frames of `docs/latex/slides.tex` to Vietnamese (titles, bullets, tables, TikZ labels, captions). Numbers, code listings and figure files unchanged. Babel switched to `main=vietnamese`. Title page shows "Nhóm 7"; last slide adds a thank-you line.
+- Fixed two layout problems found after rendering: the title overflowed on slide 1 (now two lines, written directly because `\insertshorttitle` drops `\`), and the table on slide 10 overlapped the chart (`\footnotesize`, shorter labels).
+- Rebuilt `docs/latex/slides.pdf`.
+
+#### 3. Files Modified
+
+| File | Action |
+|---|---|
+| docs/latex/slides.tex | Translated to Vietnamese |
+| docs/latex/slides.pdf | Rebuilt |
+| WORKLOG.md | Modified |
+
+#### 4. Commands Executed
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "D:/Projects/TTSS:/src" -w /src/docs/latex texlive/texlive:latest latexmk -pdf -interaction=nonstopmode slides.tex
+# pages rendered with Ghostscript (gs -sDEVICE=png16m -r60) and inspected visually
+```
+
+#### 5. Testing and Results
+
+- Build: exit 0, 14 pages.
+- Two small overfull boxes remain (8.3 pt at the photo credit line of slide 2, 9.2 pt in the preamble); no visible effect on the rendered pages.
+- All 14 pages inspected: no overflow or overlapping text.
+
+#### 6. Known Issues / Remaining Tasks
+
+- Text inside the chart PNGs (`docs/figures/*.png`: axis labels, legends) is still in English; changing it requires regenerating the plots.
+- `docs/presentation/slides_outline.md` is still in English.
+- Changes not committed yet.
