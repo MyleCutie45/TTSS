@@ -2560,3 +2560,12 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "D:/Projects/TTSS:/src" -w /src/docs/latex
 - Local backup of the old history: tag `backup-before-trailer-removal`.
 - Pushed with `git push --force-with-lease origin main`.
 - Branches `local-m0-work` and `m4-benchmark` on GitHub were not rewritten (not the default branch).
+
+### [2026-11-25] – Final submission cleanup
+
+- Deleted the old remote branches `local-m0-work` and `m4-benchmark` on GitHub (`git push origin --delete`); only `main` remains. No open pull requests used them.
+- Report: `Downloads\main.pdf` is byte-identical to `docs/BaoCao_TTSS_Nhom7.pdf` (same SHA-256), so the repository copy was kept.
+- Regenerated `Downloads\Nop_TTSS_Nhom7\TTSS_Nhom7_source.zip` from the final `main`.
+- Submission links:
+  - Report: https://github.com/MyleCutie45/TTSS/blob/main/docs/BaoCao_TTSS_Nhom7.pdf
+  - Source code: https://github.com/MyleCutie45/TTSS/tree/main
